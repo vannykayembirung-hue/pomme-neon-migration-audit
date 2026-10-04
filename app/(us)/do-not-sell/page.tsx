@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { CONTACT_EMAIL } from '@/lib/site'
 import { DoNotSellActions } from './actions'
 
 export const metadata: Metadata = { title: 'Do Not Sell or Share My Personal Information' }
@@ -14,7 +15,11 @@ export default function DoNotSell() {
       </p>
       <DoNotSellActions />
       <p className="mt-6 text-sm">
-        To ask us to delete anything we hold about you, email the address in our newsletter footer.{' '}
+        To ask us to delete anything we hold about you, email{' '}
+        <a href={`mailto:${CONTACT_EMAIL}`} className="font-bold underline">
+          {CONTACT_EMAIL}
+        </a>
+        .{' '}
         <Link href="/" className="font-bold underline">
           Back to Pomme
         </Link>

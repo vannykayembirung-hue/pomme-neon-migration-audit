@@ -1,4 +1,4 @@
-import { SITE_URL } from '@/lib/site'
+import { CONTACT_EMAIL, SITE_URL } from '@/lib/site'
 
 export const POSTAL_ADDRESS =
   process.env.POMME_POSTAL_ADDRESS ?? 'Pomme Ltd, [registered address], United Kingdom and United States'
@@ -13,14 +13,14 @@ const listHeaders = (token: string) => ({
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
 
 function shell(body: string, unsubscribeUrl?: string) {
-  const footer = `${esc(POSTAL_ADDRESS)}${unsubscribeUrl ? ` · <a href="${esc(unsubscribeUrl)}" style="color:#6b3b3f">Unsubscribe</a>` : ''}`
+  const footer = `${esc(POSTAL_ADDRESS)} · <a href="mailto:${CONTACT_EMAIL}" style="color:#6b3b3f">${CONTACT_EMAIL}</a>${unsubscribeUrl ? ` · <a href="${esc(unsubscribeUrl)}" style="color:#6b3b3f">Unsubscribe</a>` : ''}`
   return `<!doctype html><html lang="en"><body style="margin:0;background:#fbf3e8;font-family:Arial,Helvetica,sans-serif;color:#1c0709"><div style="max-width:520px;margin:0 auto;padding:32px 24px">${body}<p style="margin-top:32px;font-size:12px;line-height:1.5;color:#6b3b3f">${footer}</p></div></body></html>`
 }
 
 const button = (href: string, label: string) =>
   `<p style="margin:28px 0"><a href="${esc(href)}" style="background:#1c0709;color:#fbf3e8;padding:14px 22px;border-radius:12px;text-decoration:none;font-weight:bold;display:inline-block">${esc(label)}</a></p>`
 
-const textFooter = (unsubscribeUrl?: string) => `\n\n${POSTAL_ADDRESS}${unsubscribeUrl ? `\nUnsubscribe: ${unsubscribeUrl}` : ''}`
+const textFooter = (unsubscribeUrl?: string) => `\n\n${POSTAL_ADDRESS}\n${CONTACT_EMAIL}${unsubscribeUrl ? `\nUnsubscribe: ${unsubscribeUrl}` : ''}`
 
 export function confirmEmail(token: string): Mail {
   const url = `${SITE_URL}/newsletter/confirm?token=${encodeURIComponent(token)}`

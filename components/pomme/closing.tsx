@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import { ArrowRight } from 'lucide-react'
 import { OPEN_CONSENT_EVENT } from '@/components/consent/cookie-banner'
-import { SOCIALS } from '@/lib/site'
+import { CONTACT_EMAIL, SOCIALS } from '@/lib/site'
 import { Logo } from './logo'
 import { usePomme } from './pomme-provider'
 
@@ -82,6 +82,11 @@ export function SiteFooter() {
             <li>
               <a href="#faq" className="hover:text-cream">
                 FAQ
+              </a>
+            </li>
+            <li>
+              <a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-cream">
+                {CONTACT_EMAIL}
               </a>
             </li>
           </ul>
