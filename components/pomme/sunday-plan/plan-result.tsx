@@ -1,0 +1,289 @@
+'use client'
+
+import Image from 'next/image'
+import { useState } from 'react'
+import { Bookmark, CalendarArrowUp, Check, Moon, RefreshCw, Repeat, Sparkles } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { DAY_NAMES, formatMoney, type Plan } from '@/lib/pomme/plan'
+import { AISLE_LABELS, localName, type Locale } from '@/lib/pomme/recipes'
+import { usePomme } from '../pomme-provider'
+
+function formatMinutes(total: number) {
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  return h ? `${h}h ${m.toString().padStart(2, '0')}m` : `${m}m`
+}
+
+function EmptyState() {
+  return (
+    <div className="relative flex h-full min-h-[420px] flex-col justify-end overflow-hidden rounded-3xl bg-oxblood p-7 text-cream">
+      <Image
+        src="/images/hero-apple.webp"
+        alt=""
+        width={1024}
+        height={1024}
+        sizes="320px"
+        className="pointer-events-none absolute -right-16 -top-10 w-80 opacity-90 [mask-image:radial-gradient(closest-side,black_65%,transparent)]"
+      />
+      <div className="relative">
+        <p className="font-script text-5xl leading-none text-leaf">your plan</p>
+        <h3 className="mt-1 text-3xl font-black tracking-tight">lands right here.</h3>
+        <ul className="mt-6 flex flex-col gap-2 text-sm text-cream/75">
+          {['Seven nights, planned around your week', 'One basket, sorted by aisle', 'A quick note on what Pomme noticed'].map(
+            (item) => (
+              <li key={item} className="flex items-center gap-2">
+                <Check className="size-4 text-leaf" aria-hidden="true" />
+                {item}
+              </li>
+            ),
+          )}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
+function WeekList({ plan, locale }: { plan: Plan; locale: Locale }) {
+  const { openPaywall } = usePomme()
+  return (
+    <ol className="flex flex-col divide-y divide-border">
+      {plan.days.map((entry) => (
+        <li key={entry.day} className="flex items-center gap-4 py-3.5">
+          <span className="w-9 shrink-0 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            {DAY_NAMES[entry.day].slice(0, 3)}
+          </span>
+          {entry.kind === 'off' ? (
+            <>
+              <span className="inline-flex size-14 shrink-0 items-center justify-center rounded-2xl bg-secondary text-muted-foreground">
+                <Moon className="size-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold">Night off</p>
+                <p className="text-sm text-muted-foreground">
+                  {locale === 'uk' ? 'Takeaway, toast or nothing at all.' : 'Takeout, toast or nothing at all.'} It’s on
+                  the plan.
+                </p>
+              </div>
+            </>
+          ) : entry.kind === 'leftovers' ? (
+            <>
+              <Image
+                src={entry.recipe.image}
+                alt=""
+                width={112}
+                height={112}
+                sizes="56px"
+                className="size-14 shrink-0 rounded-2xl object-cover opacity-70 grayscale-[30%]"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1.5 font-bold">
+                  <Repeat className="size-3.5 text-leaf-deep" aria-hidden="true" />
+                  Leftovers
+                </p>
+                <p className="truncate text-sm text-muted-foreground">
+                  {localName(entry.recipe.name, locale)} from {DAY_NAMES[entry.fromDay]}. Just reheat.
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <Image
+                src={entry.recipe.image}
+                alt={localName(entry.recipe.name, locale)}
+                width={112}
+                height={112}
+                sizes="56px"
+                className="size-14 shrink-0 rounded-2xl object-cover"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-pretty font-bold leading-snug">{localName(entry.recipe.name, locale)}</p>
+                <p className="text-sm text-muted-foreground">
+                  {entry.recipe.time} min
+                  {entry.mode === 'quick' && ' · Quick night'}
+                  {entry.batch && ' · Makes extra'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => openPaywall('swap')}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold transition hover:border-foreground/40"
+              >
+                <RefreshCw className="size-3.5" aria-hidden="true" />
+                <span>Swap</span>
+              </button>
+            </>
+          )}
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function Basket({ plan, locale }: { plan: Plan; locale: Locale }) {
+  const [checked, setChecked] = useState<Set<string>>(new Set())
+  const toggle = (key: string) =>
+    setChecked((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+
+  return (
+    <div className="flex flex-col gap-6 py-2">
+      {plan.basket.map((group) => (
+        <div key={group.aisle}>
+          <h4 className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
+            {AISLE_LABELS[group.aisle][locale]}
+          </h4>
+          <ul className="mt-2 flex flex-col">
+            {group.items.map((item) => {
+              const isChecked = checked.has(item.key)
+              return (
+                <li key={item.key}>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-xl px-1 py-2 transition hover:bg-secondary/60">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggle(item.key)}
+                      className="size-4.5 shrink-0 accent-leaf-deep"
+                    />
+                    <span className={cn('flex-1', isChecked && 'text-muted-foreground line-through')}>{item.label}</span>
+                    {item.meals > 1 && (
+                      <span className="rounded-full bg-leaf-deep/10 px-2 py-0.5 text-[11px] font-semibold text-leaf-deep">
+                        {item.meals} meals
+                      </span>
+                    )}
+                  </label>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ))}
+      {plan.staples.length > 0 && (
+        <p className="rounded-2xl bg-secondary px-4 py-3 text-sm text-muted-foreground">
+          <span className="font-semibold text-foreground">
+            Probably already in your {locale === 'uk' ? 'cupboard' : 'pantry'}:
+          </span>{' '}
+          {plan.staples.map((s) => s.label).join(', ')}
+        </p>
+      )}
+    </div>
+  )
+}
+
+export function PlanResult() {
+  const { plan, locale, prefs, openPaywall } = usePomme()
+  const [tab, setTab] = useState<'week' | 'basket'>('week')
+
+  if (!plan) return <EmptyState />
+
+  const overBudget = plan.total > prefs.budget
+  const itemCount = plan.basket.reduce((sum, g) => sum + g.items.length, 0)
+
+  return (
+    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-3 duration-500" aria-live="polite">
+      <div className="rounded-3xl bg-oxblood p-6 text-cream">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-script text-4xl leading-none text-leaf">your week,</p>
+            <h3 className="text-2xl font-black tracking-tight">beautifully sorted.</h3>
+          </div>
+          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-cream/80">Free plan</span>
+        </div>
+        <dl className="mt-6 grid grid-cols-3 gap-3">
+          <div className="rounded-2xl bg-white/[0.06] p-3">
+            <dt className="text-[11px] uppercase tracking-wider text-cream/55">Dinners</dt>
+            <dd className="mt-1 text-xl font-black">{plan.dinners}</dd>
+          </div>
+          <div className="rounded-2xl bg-white/[0.06] p-3">
+            <dt className="text-[11px] uppercase tracking-wider text-cream/55">Hands-on</dt>
+            <dd className="mt-1 text-xl font-black">{formatMinutes(plan.activeMinutes)}</dd>
+          </div>
+          <div className={cn('rounded-2xl p-3', overBudget ? 'bg-apple/25' : 'bg-white/[0.06]')}>
+            <dt className="text-[11px] uppercase tracking-wider text-cream/55">Basket</dt>
+            <dd className="mt-1 text-xl font-black">≈{formatMoney(plan.total, locale)}</dd>
+          </div>
+        </dl>
+        {overBudget && (
+          <button
+            type="button"
+            onClick={() => openPaywall('budget')}
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-leaf underline-offset-4 hover:underline"
+          >
+            <Sparkles className="size-3.5" aria-hidden="true" />
+            Bring it under {formatMoney(prefs.budget, locale)} with budget mode
+          </button>
+        )}
+      </div>
+
+      <div className="rounded-3xl border border-border bg-card p-5">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-apple">Pomme noticed</p>
+        <ul className="mt-3 flex flex-col gap-2">
+          {plan.notes.map((note) => (
+            <li key={note} className="flex gap-2.5 text-sm leading-relaxed">
+              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-leaf-deep" aria-hidden="true" />
+              {note}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="rounded-3xl border border-border bg-card p-5">
+        <div role="tablist" aria-label="Plan view" className="flex gap-1 rounded-full bg-secondary p-1">
+          {(
+            [
+              ['week', 'Your Week'],
+              ['basket', `Your Basket · ${itemCount}`],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              id={`tab-${value}`}
+              aria-selected={tab === value}
+              aria-controls={`panel-${value}`}
+              onClick={() => setTab(value)}
+              className={cn(
+                'flex-1 rounded-full px-4 py-2 text-sm font-semibold transition',
+                tab === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="mt-3">
+          {tab === 'week' ? <WeekList plan={plan} locale={locale} /> : <Basket plan={plan} locale={locale} />}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 rounded-3xl bg-apple p-6 text-primary-foreground sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-lg font-black leading-tight">Want this every Sunday?</p>
+          <p className="mt-1 text-sm text-primary-foreground/85">Save it, swap anything, and let Pomme learn your week.</p>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            onClick={() => openPaywall('save')}
+            className="inline-flex items-center gap-1.5 rounded-full bg-cream px-4 py-2.5 text-sm font-bold text-oxblood transition hover:bg-white"
+          >
+            <Bookmark className="size-4" aria-hidden="true" />
+            Save my plan
+          </button>
+          <button
+            type="button"
+            onClick={() => openPaywall('next-week')}
+            aria-label="Plan next week"
+            className="inline-flex items-center justify-center rounded-full border border-cream/40 px-3 py-2.5 transition hover:bg-white/10"
+          >
+            <CalendarArrowUp className="size-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

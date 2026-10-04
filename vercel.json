@@ -1,0 +1,7 @@
+{
+  "crons": [
+    { "path": "/api/cron/sunday-reminder", "schedule": "0 17 * * 0" },
+    { "path": "/api/cron/email-queue", "schedule": "0 8 * * *" },
+    { "path": "/api/cron/skills", "schedule": "30 17 * * 0" }
+  ]
+}
