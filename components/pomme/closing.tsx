@@ -94,16 +94,18 @@ export function SiteFooter() {
         <p className="text-xs">© 2026 Pomme. Made for real weeks, in the US and UK.</p>
       </div>
       <div className="mx-auto flex max-w-6xl flex-col gap-4 border-t border-white/10 px-5 py-6 text-sm sm:flex-row sm:items-center sm:justify-between">
-        <ul className="flex flex-wrap gap-x-5 gap-y-2" aria-label="Pomme on social media">
-          {SOCIALS.map((s) => (
-            <li key={s.name}>
-              <a href={s.href} target="_blank" rel="noopener noreferrer" className="hover:text-cream">
-                {s.name}
-                <span className="sr-only"> (opens in a new tab)</span>
-              </a>
-            </li>
-          ))}
-        </ul>
+        {SOCIALS.length > 0 && (
+          <ul className="flex flex-wrap gap-x-5 gap-y-2" aria-label="Pomme on social media">
+            {SOCIALS.map((s) => (
+              <li key={s.name}>
+                <a href={s.href} target="_blank" rel="noopener noreferrer" className="hover:text-cream">
+                  {s.name}
+                  <span className="sr-only"> (opens in a new tab)</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
         <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
           <li>
             <a href="/do-not-sell" className="underline-offset-4 hover:text-cream hover:underline">
