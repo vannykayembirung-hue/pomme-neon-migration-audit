@@ -1,4 +1,5 @@
 import { BUDGET_RANGE, DEFAULT_BUDGET, DEFAULT_PREFS, type Prefs } from './plan'
+import { EMPTY_MEMORY, parseMemory, type MemoryState } from './memory'
 import type { Locale } from './recipes'
 
 export const STORAGE_KEY = 'pomme:v1'
@@ -13,6 +14,8 @@ export type PommeState = {
   swaps: Record<number, string>
   /** Grocery list checkboxes: ingredient keys ticked while shopping. Survives F5. */
   checkedGroceryItems: string[]
+  /** Deterministic behavioural memory ("Pomme learns"). */
+  memory: MemoryState
 }
 
 export type Persisted = PommeState & { version: 1; savedAt: number }
@@ -25,6 +28,7 @@ export function defaultState(locale: Locale): PommeState {
     seed: 0,
     swaps: {},
     checkedGroceryItems: [],
+    memory: EMPTY_MEMORY,
   }
 }
 
@@ -96,6 +100,7 @@ export function parsePersisted(raw: string | null, now = Date.now()): PommeState
       seed: data.seed,
       swaps: parseSwaps(data.swaps),
       checkedGroceryItems: parseChecked(data.checkedGroceryItems),
+      memory: parseMemory(data.memory),
     }
   } catch {
     return null

@@ -9,6 +9,7 @@ import {
   type QtyUnit,
   type Recipe,
 } from './recipes'
+import { memoryBonus, type MemoryState } from './memory'
 
 export type DayMode = 'cook' | 'quick' | 'off'
 
@@ -262,7 +263,7 @@ export function rebuildPlan(days: PlanDay[], prefs: Prefs, locale: Locale): Plan
   }
 }
 
-export function generatePlan(prefs: Prefs, locale: Locale, seed = 0): Plan {
+export function generatePlan(prefs: Prefs, locale: Locale, seed = 0, memory?: MemoryState): Plan {
   const pool = eligiblePool(prefs)
   const cookNights = prefs.days.filter((d) => d !== 'off').length || 1
   const perServingBudget = prefs.budget / cookNights / prefs.household
@@ -311,6 +312,9 @@ export function generatePlan(prefs: Prefs, locale: Locale, seed = 0): Plan {
         score += shared * 0.6
         if (r.time > maxTime) score -= (r.time - maxTime) * 0.05 // prefer the least overflow
         score -= (counts.get(r.id) ?? 0) * 0.25 // prefer fresh picks on repeats
+        // Learned preferences are the LAST word in ranking only: the bonus is
+        // bounded (±0.75) and hard filters (avoid/diet/time) already ran above.
+        if (memory) score += memoryBonus(memory, r)
         return { r, score }
       })
       .sort((a, b) => b.score - a.score)
@@ -344,11 +348,12 @@ export function findNextSeed(
   startSeed: number,
   previous: string | null,
   maxTries = 32,
+  memory?: MemoryState,
 ): number {
   let seed = Math.max(1, startSeed)
   let lastVerified = seed
   for (let attempt = 0; attempt < maxTries; attempt++) {
-    const signature = planSignature(generatePlan(prefs, locale, seed))
+    const signature = planSignature(generatePlan(prefs, locale, seed, memory))
     if (!previous || signature !== previous) return seed
     lastVerified = seed
     seed++

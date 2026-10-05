@@ -21,8 +21,9 @@ import {
   type Prefs,
 } from '@/lib/pomme/plan'
 import { FEATURES } from '@/lib/pomme/features'
+import { applySignal } from '@/lib/pomme/memory'
 import { createPommeStore, localiseState } from '@/lib/pomme/persist'
-import type { Locale } from '@/lib/pomme/recipes'
+import { RECIPES, type Locale } from '@/lib/pomme/recipes'
 import { track } from '@/lib/telemetry'
 
 export type PaywallReason = 'swap' | 'save' | 'budget' | 'next-week' | 'pricing'
@@ -64,7 +65,7 @@ export function PommeProvider({
   const store = useMemo(() => createPommeStore(defaultLocale), [defaultLocale])
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot)
   const [paywall, setPaywall] = useState<PaywallReason | null>(null)
-  const { locale, prefs, planPrefs, seed, swaps, checkedGroceryItems } = state
+  const { locale, prefs, planPrefs, seed, swaps, checkedGroceryItems, memory } = state
 
   const router = useRouter()
 
@@ -85,9 +86,24 @@ export function PommeProvider({
   const generate = useCallback(() => {
     store.update((s) => {
       // "Rework my plan" must visibly rework: skip seeds that reproduce the same week.
-      const previous = s.seed > 0 ? planSignature(generatePlan(s.planPrefs ?? s.prefs, locale, s.seed)) : null
-      const seed = findNextSeed(s.prefs, locale, s.seed + 1, previous)
-      return { ...s, planPrefs: s.prefs, seed, swaps: {} }
+      const previous = s.seed > 0 ? planSignature(generatePlan(s.planPrefs ?? s.prefs, locale, s.seed, s.memory)) : null
+      const seed = findNextSeed(s.prefs, locale, s.seed + 1, previous, undefined, s.memory)
+      // "Pomme learns": a meal that survives a rework was kept on purpose.
+      let memory = s.memory
+      if (previous) {
+        const before = new Set(
+          generatePlan(s.planPrefs ?? s.prefs, locale, s.seed, s.memory).days.flatMap((d) =>
+            d.kind === 'meal' ? [d.recipe] : [],
+          ),
+        )
+        const after = generatePlan(s.prefs, locale, seed, s.memory).days.flatMap((d) =>
+          d.kind === 'meal' ? [d.recipe] : [],
+        )
+        for (const recipe of after) {
+          if (before.has(recipe)) memory = applySignal(memory, recipe, 'kept')
+        }
+      }
+      return { ...s, planPrefs: s.prefs, seed, swaps: {}, memory }
     })
     track({ type: 'plan_generated', locale, mood: prefs.mood })
   }, [store, locale, prefs.mood])
@@ -96,9 +112,9 @@ export function PommeProvider({
     (note: string) => {
       const parsed = parseWeekNote(note, prefs, locale)
       store.update((s) => {
-        const previous = s.seed > 0 ? planSignature(generatePlan(s.planPrefs ?? s.prefs, locale, s.seed)) : null
-        const seed = findNextSeed(parsed.prefs, parsed.locale, s.seed + 1, previous)
-        return { ...s, locale: parsed.locale, prefs: parsed.prefs, planPrefs: parsed.prefs, seed, swaps: {} }
+        const previous = s.seed > 0 ? planSignature(generatePlan(s.planPrefs ?? s.prefs, locale, s.seed, s.memory)) : null
+        const seed = findNextSeed(parsed.prefs, parsed.locale, s.seed + 1, previous, undefined, s.memory)
+        return { ...s, locale: parsed.locale, prefs: parsed.prefs, planPrefs: parsed.prefs, seed, swaps: {}, memory: s.memory }
       })
       track({ type: 'plan_generated', locale: parsed.locale, mood: parsed.prefs.mood })
       if (parsed.locale !== defaultLocale) {
@@ -119,7 +135,20 @@ export function PommeProvider({
 
   const swapMeal = useCallback(
     (day: number, recipeId: string) => {
-      store.update((s) => ({ ...s, swaps: { ...s.swaps, [day]: recipeId } }))
+      store.update((s) => {
+        // "Pomme learns": what was swapped out loses ground, what was chosen gains it.
+        let memory = s.memory
+        if (s.seed > 0) {
+          const current = applySwaps(generatePlan(s.planPrefs ?? s.prefs, locale, s.seed, s.memory), s.swaps, s.planPrefs ?? s.prefs, locale)
+          const entry = current.days[day]
+          const incoming = RECIPES.find((r) => r.id === recipeId)
+          if (entry && entry.kind === 'meal' && entry.recipe.id !== recipeId) {
+            memory = applySignal(memory, entry.recipe, 'swapped_out')
+            if (incoming) memory = applySignal(memory, incoming, 'swapped_in')
+          }
+        }
+        return { ...s, swaps: { ...s.swaps, [day]: recipeId }, memory }
+      })
       track({ type: 'swap', locale, reason: `day-${day}` })
     },
     [store, locale],
@@ -149,9 +178,9 @@ export function PommeProvider({
   const plan = useMemo(
     () =>
       seed > 0
-        ? applySwaps(generatePlan(planPrefs ?? prefs, locale, seed), swaps, planPrefs ?? prefs, locale)
+        ? applySwaps(generatePlan(planPrefs ?? prefs, locale, seed, memory), swaps, planPrefs ?? prefs, locale)
         : null,
-    [seed, planPrefs, prefs, locale, swaps],
+    [seed, planPrefs, prefs, locale, swaps, memory],
   )
 
   // Checkboxes follow the current grocery list: when the plan changes (rework,
