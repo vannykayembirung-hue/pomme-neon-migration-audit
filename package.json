@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "tsx --test tests/skills/skills.test.ts tests/persist.test.ts tests/rate-limit.test.ts tests/plan-regression.test.ts",
+    "test": "tsx --test tests/skills/skills.test.ts tests/persist.test.ts tests/rate-limit.test.ts tests/plan-regression.test.ts tests/recipes.test.ts",
     "db:migrate": "node scripts/migrate.mjs",
     "db:import-legacy": "node scripts/migrate-json-data.mjs"
   },
