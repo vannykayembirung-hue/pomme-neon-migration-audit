@@ -23,7 +23,7 @@ const PILLARS: { icon: LucideIcon; title: string; body: string }[] = [
   {
     icon: Timer,
     title: 'Your Time',
-    body: 'Fifteen minutes on a Tuesday. Something slower on a Sunday. Pomme knows the difference.',
+    body: 'Fifteen minutes on a Tuesday. Something slower on a Sunday. Pomme plans the difference.',
   },
   {
     icon: Wallet,
@@ -82,12 +82,12 @@ export function SundayRitual() {
                 <div>
                   <h3 className="text-xl font-extrabold tracking-tight">Your Pattern</h3>
                   <p className="mt-2 max-w-xl leading-relaxed text-cream/75">
-                    The seventh one is the reason people stay. Week by week, Pomme picks up your rhythm and plans
-                    around it before you even ask.
+                    The seventh one is the reason people stay. Learning your rhythm week by week — and planning around
+                    it before you even ask — is coming to Pomme Plus.
                   </p>
                 </div>
               </div>
-              <p className="font-script text-5xl text-leaf sm:text-6xl">she learns.</p>
+              <p className="font-script text-5xl text-leaf sm:text-6xl">she’ll learn.</p>
             </div>
           </li>
         </ul>

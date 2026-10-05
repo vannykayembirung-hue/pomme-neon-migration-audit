@@ -6,7 +6,13 @@ import { PLUS_FEATURES, PRICES, annualSaving, priceLabel } from '@/lib/pomme/con
 import { LocaleToggle } from './locale-toggle'
 import { usePomme } from './pomme-provider'
 
-const FREE_FEATURES = ['One weekly plan', 'A taste of the recipe library', 'Basic shopping list']
+const FREE_FEATURES = [
+  'Sunday Plans, as many as you like',
+  'The full recipe library, with steps and quantities',
+  'Grocery list with real quantities, sorted by aisle',
+  'One free swap a week',
+  'Your weeks saved on this device',
+]
 
 function FeatureList({ items, tone }: { items: string[]; tone: 'light' | 'dark' }) {
   return (

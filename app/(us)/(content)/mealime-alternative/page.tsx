@@ -44,8 +44,8 @@ export default function Page() {
       </p>
       <h2>Bringing your habits with you</h2>
       <p>
-        Your plan is saved on your own device, so it is there when you come back next Sunday. Pomme learns your rhythm week
-        by week, so the plans get closer to how you actually eat.
+        Your plan is saved on your own device, so it is there when you come back next Sunday. Tell Pomme how the week
+        looks — busy nights, nights off, what you are craving — and the plans get closer to how you actually eat.
       </p>
     </Article>
   )

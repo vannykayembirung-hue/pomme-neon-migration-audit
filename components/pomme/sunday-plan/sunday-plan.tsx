@@ -11,7 +11,7 @@ export function SundayPlan() {
             id="plan-title"
             className="mt-3 text-balance text-4xl font-black leading-[0.95] tracking-[-0.04em] sm:text-6xl"
           >
-            Your first Sunday Plan is on us.
+            Your Sunday Plan is on us.
           </h2>
           <p className="mt-5 text-pretty text-lg leading-relaxed text-muted-foreground">
             No account, no card. Tell Pomme a little about your week and see what it feels like to have it handled.

@@ -20,18 +20,18 @@ export function annualSaving(locale: Locale) {
 
 export const PLUS_FEATURES = [
   'A fresh plan every Sunday, as many as you like',
-  'Swap any meal in a tap',
-  'Smart grocery list that remembers your cupboard',
-  'Budget mode for the weeks money’s tight',
-  'Pantry memory, so you stop buying a third jar of cumin',
-  'Weekly reset: one calm look at the week ahead',
-  'Recipes that adapt to what you’ve got and how you feel',
+  'Unlimited swaps — change any meal, any night',
+  'Smart grocery list with real quantities, sorted by aisle',
+  'Budget mode for the weeks money’s tight (coming soon)',
+  'Leftovers planned into your week automatically',
+  'Full recipes: quantities, steps and portions',
+  'Early access to new recipes as Pomme’s kitchen grows',
 ]
 
 export const FAQS = [
   {
     q: 'What is Pomme, exactly?',
-    a: 'Pomme is a personal weekly planner that starts with food. Tell her what your week looks like and she builds your dinners, your grocery list and a realistic plan around your time, budget and mood. Then she gets a little better at it every week.',
+    a: 'Pomme is a personal weekly planner that starts with food. Tell her what your week looks like and she builds your dinners, your grocery list and a realistic plan around your time, budget and mood. Every week you plan is another week sorted.',
   },
   {
     q: 'Is this a diet app?',
@@ -39,11 +39,11 @@ export const FAQS = [
   },
   {
     q: 'How does Pomme learn what I like?',
-    a: 'Every swap, skip and saved recipe teaches her something. After a few weeks she knows you’d rather not cook on Wednesdays, that Fridays need to be quick, and which ingredients you always run out of.',
+    a: 'Learning is the next chapter, coming to Pomme Plus. Today, Pomme plans from exactly what you tell her — your week, your budget, your mood, your no-gos — and remembers your weeks on this device. The version that notices your rhythm on her own is on the way.',
   },
   {
     q: 'Can it keep my food shop on budget?',
-    a: 'Yes. Set a weekly number and Pomme plans around it, reusing ingredients across meals so you buy less and waste less. With Pomme Plus, budget mode finds cheaper swaps when a week runs over.',
+    a: 'Yes. Set a weekly number and Pomme plans around it, reusing ingredients across meals so you buy less and waste less. With Pomme Plus, budget mode (coming soon) will find cheaper swaps when a week runs over.',
   },
   {
     q: 'Does it work in both the US and the UK?',
@@ -55,10 +55,10 @@ export const FAQS = [
   },
   {
     q: 'Do you plan around my cycle?',
-    a: 'Only if you’d like to. It’s an optional preference, a gentle nudge towards meals that suit how you’re feeling. It isn’t medical advice, and Pomme never makes health claims.',
+    a: 'Not yet — it’s on the roadmap as an optional preference, a gentle nudge towards meals that suit how you’re feeling. It isn’t medical advice, and Pomme never makes health claims.',
   },
   {
     q: 'Can I cancel anytime?',
-    a: 'Of course. Cancel in two taps from your account. No phone calls, no guilt trips. You keep your free plan either way.',
+    a: 'There’s nothing to cancel yet: planning is free and no card is ever needed. When Pomme Plus launches, cancelling will be two taps — no phone calls, no guilt trips. You keep your free plan either way.',
   },
 ]

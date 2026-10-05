@@ -10,11 +10,11 @@ import { usePomme, type PaywallReason } from './pomme-provider'
 const COPY: Record<PaywallReason, { title: string; body: string }> = {
   swap: {
     title: 'Swaps are a Plus thing.',
-    body: 'Not feeling Thursday? Swap any meal in a tap, and Pomme learns why so next week fits better.',
+    body: 'Not feeling Thursday? Swap it in a tap. Your free plan swaps once a week — Pomme Plus lifts the limit.',
   },
   save: {
     title: 'Keep this week. And the next.',
-    body: 'Save your plan and Pomme starts learning from it. By week four, she just gets you.',
+    body: 'This week is already saved on your device. Pomme Plus will keep every week you love, on every device.',
   },
   budget: {
     title: 'Let budget mode do the maths.',
@@ -22,7 +22,7 @@ const COPY: Record<PaywallReason, { title: string; body: string }> = {
   },
   'next-week': {
     title: 'Next Sunday, already sorted.',
-    body: 'A fresh plan lands every Sunday at six, shaped by everything Pomme learned this week.',
+    body: 'A fresh plan every Sunday at six, shaped by the week you gave her — ready before the shop.',
   },
   pricing: {
     title: 'Meet Pomme Plus.',
