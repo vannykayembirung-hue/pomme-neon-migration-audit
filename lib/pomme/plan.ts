@@ -6,6 +6,7 @@ import {
   type Avoid,
   type Locale,
   type Mood,
+  type QtyUnit,
   type Recipe,
 } from './recipes'
 
@@ -22,6 +23,9 @@ export const DAY_NAMES = [
   'Sunday',
 ] as const
 
+/** A quick night never asks for more than this. */
+export const MAX_QUICK_TIME = 20
+
 export type Prefs = {
   household: number
   days: DayMode[]
@@ -32,7 +36,7 @@ export type Prefs = {
 }
 
 export type PlanDay =
-  | { day: number; kind: 'meal'; mode: DayMode; recipe: Recipe; batch: boolean }
+  | { day: number; kind: 'meal'; mode: DayMode; recipe: Recipe; batch: boolean; overTime: boolean }
   | { day: number; kind: 'leftovers'; fromDay: number; recipe: Recipe }
   | { day: number; kind: 'off' }
 
@@ -42,6 +46,9 @@ export type BasketItem = {
   aisle: Aisle
   meals: number
   staple: boolean
+  /** Total shoppable quantity for the week: Σ qtyPerServing × servings. */
+  amount: number
+  unit: QtyUnit
 }
 
 export type Plan = {
@@ -52,6 +59,12 @@ export type Plan = {
   activeMinutes: number
   dinners: number
   notes: string[]
+  /** The budget this plan was generated against — always the source of truth for the UI. */
+  budget: number
+  /** Household size this plan was generated for (portions shown on recipes). */
+  servings: number
+  /** Honest disclaimers: limited variety, time overflows. Never silent. */
+  warnings: string[]
 }
 
 export const DEFAULT_BUDGET: Record<Locale, number> = { us: 90, uk: 70 }
@@ -83,85 +96,71 @@ export function formatMoney(value: number, locale: Locale) {
   }).format(value)
 }
 
+const roundUp = (value: number, step: number) => Math.ceil(value / step - 1e-9) * step
+
+/** Human shopping quantity for a weekly total, e.g. "2 cans", "500 g", "1.2 kg", "3 ×". */
+export function formatQty(amount: number, unit: QtyUnit): string {
+  if (unit === 'g') {
+    return amount >= 1000 ? `${(roundUp(amount, 100) / 1000).toFixed(1).replace(/\.0$/, '')} kg` : `${roundUp(amount, 5)} g`
+  }
+  if (unit === 'ml') {
+    return amount >= 1000 ? `${(roundUp(amount, 100) / 1000).toFixed(1).replace(/\.0$/, '')} l` : `${roundUp(amount, 10)} ml`
+  }
+  const n = Math.max(1, Math.ceil(amount - 1e-9))
+  if (unit === 'tbsp') return `${n} tbsp`
+  if (unit === 'tsp') return `${n} tsp`
+  if (unit === 'cans') return `${n} ${n === 1 ? 'can' : 'cans'}`
+  if (unit === 'packs') return `${n} ${n === 1 ? 'pack' : 'packs'}`
+  return `${n} ×`
+}
+
 function jitter(id: string, seed: number) {
   let h = seed * 2654435761
   for (let c = 0; c < id.length; c++) h = Math.imul(h ^ id.charCodeAt(c), 16777619)
   return ((h >>> 0) % 1000) / 1000
 }
 
-export function generatePlan(prefs: Prefs, locale: Locale, seed = 0): Plan {
+const eligiblePool = (prefs: Prefs) => {
   const eligible = RECIPES.filter((r) => !r.contains.some((a) => prefs.avoid.includes(a)))
-  const pool = eligible.length > 0 ? eligible : RECIPES.filter((r) => r.contains.length === 0)
-  const cookNights = prefs.days.filter((d) => d !== 'off').length || 1
-  const perServingBudget = prefs.budget / cookNights / prefs.household
+  return eligible.length > 0 ? eligible : RECIPES.filter((r) => r.contains.length === 0)
+}
 
-  const used = new Set<string>()
-  const pickedKeys = new Map<string, number>()
-  const days: PlanDay[] = []
-  let pendingLeftovers: { recipe: Recipe; day: number; index: number } | null = null
+const timeLimitFor = (mode: DayMode, prefs: Prefs) => (mode === 'quick' ? MAX_QUICK_TIME : prefs.cookTime)
 
-  prefs.days.forEach((mode, day) => {
-    if (mode === 'off') {
-      if (pendingLeftovers) {
-        days.push({ day, kind: 'leftovers', fromDay: pendingLeftovers.day, recipe: pendingLeftovers.recipe })
-        const source = days[pendingLeftovers.index]
-        if (source.kind === 'meal') source.batch = true
-        pendingLeftovers = null
-      } else {
-        days.push({ day, kind: 'off' })
-      }
-      return
-    }
-
-    const maxTime = mode === 'quick' ? 20 : prefs.cookTime
-    const nextIsOff = prefs.days[day + 1] === 'off'
-    let candidates = pool.filter((r) => !used.has(r.id) && r.time <= maxTime)
-    if (candidates.length === 0) candidates = pool.filter((r) => !used.has(r.id))
-    if (candidates.length === 0) candidates = pool
-
-    const scored = candidates
-      .map((r) => {
-        let score = jitter(r.id, seed) * 1.5
-        if (r.moods.includes(prefs.mood)) score += 3
-        if (mode === 'quick' && r.time <= 15) score += 1
-        if (nextIsOff && r.makesLeftovers) score += 2.5
-        const cost = priceFor(r.costPerServingUsd, locale)
-        score += cost <= perServingBudget ? 1 : -2
-        const shared = r.ingredients.filter((ing) => !ing.staple && pickedKeys.has(ing.key)).length
-        score += shared * 0.6
-        return { r, score }
-      })
-      .sort((a, b) => b.score - a.score)
-
-    const recipe = scored[0].r
-    used.add(recipe.id)
-    recipe.ingredients.forEach((ing) => pickedKeys.set(ing.key, (pickedKeys.get(ing.key) ?? 0) + 1))
-    days.push({ day, kind: 'meal', mode, recipe, batch: false })
-    if (recipe.makesLeftovers) pendingLeftovers = { recipe, day, index: days.length - 1 }
-  })
-
+/**
+ * Rebuilds every derived value (basket, quantities, cost, notes, warnings) from a
+ * fixed week of days. Single source of truth for generatePlan and applySwap.
+ */
+export function rebuildPlan(days: PlanDay[], prefs: Prefs, locale: Locale): Plan {
   const items = new Map<string, BasketItem>()
   let total = 0
   let activeMinutes = 0
   let dinners = 0
+  const cooked = new Map<string, number>()
 
   for (const entry of days) {
     if (entry.kind !== 'meal') continue
     dinners++
     activeMinutes += entry.recipe.time
+    cooked.set(entry.recipe.id, (cooked.get(entry.recipe.id) ?? 0) + 1)
     const servings = prefs.household * (entry.batch ? 2 : 1)
     total += priceFor(entry.recipe.costPerServingUsd, locale) * servings
     for (const ing of entry.recipe.ingredients) {
       const existing = items.get(ing.key)
-      if (existing) existing.meals++
-      else
+      if (existing) {
+        existing.meals++
+        existing.amount += ing.qtyPerServing * servings
+      } else {
         items.set(ing.key, {
           key: ing.key,
           label: localName(ing, locale),
           aisle: ing.aisle,
           meals: 1,
           staple: Boolean(ing.staple),
+          amount: ing.qtyPerServing * servings,
+          unit: ing.unit,
         })
+      }
     }
   }
 
@@ -189,7 +188,7 @@ export function generatePlan(prefs: Prefs, locale: Locale, seed = 0): Plan {
   const quickNights = prefs.days.filter((d) => d === 'quick').length
   if (quickNights > 0) {
     notes.push(
-      `${quickNights} quick ${quickNights === 1 ? 'night' : 'nights'}, nothing over 20 minutes.`,
+      `${quickNights} quick ${quickNights === 1 ? 'night' : 'nights'}, nothing over ${MAX_QUICK_TIME} minutes.`,
     )
   }
   const diff = prefs.budget - total
@@ -199,7 +198,166 @@ export function generatePlan(prefs: Prefs, locale: Locale, seed = 0): Plan {
       : `About ${formatMoney(-diff, locale)} over budget. Budget mode can fix that.`,
   )
 
-  return { days, basket, staples, total, activeMinutes, dinners, notes }
+  // Honest warnings — never hide a constraint violation.
+  const warnings: string[] = []
+  const slotCount = days.filter((d) => d.kind === 'meal').length
+  const pool = eligiblePool(prefs)
+  const repeatedHard = [...cooked.values()].some((n) => n > 2)
+  if (repeatedHard || pool.length < slotCount) {
+    warnings.push('Limited variety this week — here’s what Pomme can do with your restrictions.')
+  }
+  const overTimeMeals = days.filter(
+    (d): d is Extract<PlanDay, { kind: 'meal' }> =>
+      d.kind === 'meal' && d.recipe.time > timeLimitFor(d.mode, prefs),
+  )
+  if (overTimeMeals.length === 1) {
+    warnings.push('One meal goes beyond your usual cooking time.')
+  } else if (overTimeMeals.length > 1) {
+    warnings.push(`${overTimeMeals.length} meals go beyond your usual cooking time.`)
+  }
+
+  const flagged: PlanDay[] = days.map((entry) =>
+    entry.kind === 'meal'
+      ? { ...entry, overTime: entry.recipe.time > timeLimitFor(entry.mode, prefs) }
+      : entry,
+  )
+
+  return {
+    days: flagged,
+    basket,
+    staples,
+    total,
+    activeMinutes,
+    dinners,
+    notes,
+    budget: prefs.budget,
+    servings: prefs.household,
+    warnings,
+  }
+}
+
+export function generatePlan(prefs: Prefs, locale: Locale, seed = 0): Plan {
+  const pool = eligiblePool(prefs)
+  const cookNights = prefs.days.filter((d) => d !== 'off').length || 1
+  const perServingBudget = prefs.budget / cookNights / prefs.household
+
+  const counts = new Map<string, number>()
+  const pickedKeys = new Map<string, number>()
+  const days: PlanDay[] = []
+  let pendingLeftovers: { recipe: Recipe; day: number; index: number } | null = null
+
+  prefs.days.forEach((mode, day) => {
+    if (mode === 'off') {
+      if (pendingLeftovers) {
+        days.push({ day, kind: 'leftovers', fromDay: pendingLeftovers.day, recipe: pendingLeftovers.recipe })
+        const source = days[pendingLeftovers.index]
+        if (source.kind === 'meal') source.batch = true
+        pendingLeftovers = null
+      } else {
+        days.push({ day, kind: 'off' })
+      }
+      return
+    }
+
+    const maxTime = timeLimitFor(mode, prefs)
+    const nextIsOff = prefs.days[day + 1] === 'off'
+    const withCount = (n: number, timeOk: boolean) =>
+      pool.filter((r) => (counts.get(r.id) ?? 0) === n && (timeOk ? r.time <= maxTime : r.time > maxTime))
+
+    // Variety first, time honesty second, silence never:
+    //  1) new recipe on time  2) one repeat on time  3) new recipe over time
+    //  4) one repeat over time  5) beyond the 2-cook cap (only if nothing else)
+    let candidates = withCount(0, true)
+    if (candidates.length === 0) candidates = withCount(1, true)
+    if (candidates.length === 0) candidates = withCount(0, false)
+    if (candidates.length === 0) candidates = withCount(1, false)
+    if (candidates.length === 0) candidates = pool
+
+    const scored = candidates
+      .map((r) => {
+        let score = jitter(r.id, seed) * 1.5
+        if (r.moods.includes(prefs.mood)) score += 3
+        if (mode === 'quick' && r.time <= 15) score += 1
+        if (nextIsOff && r.makesLeftovers) score += 2.5
+        const cost = priceFor(r.costPerServingUsd, locale)
+        score += cost <= perServingBudget ? 1 : -2
+        const shared = r.ingredients.filter((ing) => !ing.staple && pickedKeys.has(ing.key)).length
+        score += shared * 0.6
+        if (r.time > maxTime) score -= (r.time - maxTime) * 0.05 // prefer the least overflow
+        score -= (counts.get(r.id) ?? 0) * 0.25 // prefer fresh picks on repeats
+        return { r, score }
+      })
+      .sort((a, b) => b.score - a.score)
+
+    const recipe = scored[0].r
+    counts.set(recipe.id, (counts.get(recipe.id) ?? 0) + 1)
+    recipe.ingredients.forEach((ing) => pickedKeys.set(ing.key, (pickedKeys.get(ing.key) ?? 0) + 1))
+    days.push({ day, kind: 'meal', mode, recipe, batch: false, overTime: false })
+    if (recipe.makesLeftovers) pendingLeftovers = { recipe, day, index: days.length - 1 }
+  })
+
+  return rebuildPlan(days, prefs, locale)
+}
+
+/** Stable identity of a week: which meal lands where. Used by "Rework my plan". */
+export function planSignature(plan: Plan): string {
+  return plan.days
+    .map((d) => (d.kind === 'meal' ? `${d.day}m:${d.recipe.id}` : d.kind === 'leftovers' ? `${d.day}l:${d.recipe.id}` : `${d.day}x`))
+    .join('|')
+}
+
+/** First seed ≥ start whose plan differs from `previous`, so "Rework my plan" always visibly reworks. */
+export function findNextSeed(
+  prefs: Prefs,
+  locale: Locale,
+  startSeed: number,
+  previous: string | null,
+  maxTries = 8,
+): number {
+  let seed = Math.max(1, startSeed)
+  for (let attempt = 0; attempt < maxTries; attempt++) {
+    if (!previous || planSignature(generatePlan(prefs, locale, seed)) !== previous) return seed
+    seed++
+  }
+  return seed
+}
+
+function swapDays(plan: Plan, dayIndex: number, recipe: Recipe): PlanDay[] {
+  return plan.days.map((entry) => {
+    if (entry.kind === 'meal' && entry.day === dayIndex) {
+      return { ...entry, recipe }
+    }
+    if (entry.kind === 'leftovers' && entry.fromDay === dayIndex) {
+      // Leftovers always follow the meal they were batched from.
+      return { ...entry, recipe }
+    }
+    return entry
+  })
+}
+
+/**
+ * Replaces the meal on `dayIndex`, keeping the rest of the week untouched and
+ * rebuilding the basket, cost and warnings from the new week. Returns the plan
+ * unchanged when the swap is not allowed (day, recipe or exclusions).
+ */
+export function applySwap(plan: Plan, dayIndex: number, recipeId: string, prefs: Prefs, locale: Locale): Plan {
+  const entry = plan.days[dayIndex]
+  if (!entry || entry.kind !== 'meal') return plan
+  if (entry.recipe.id === recipeId) return plan
+  const recipe = RECIPES.find((r) => r.id === recipeId)
+  if (!recipe) return plan
+  if (recipe.contains.some((a) => prefs.avoid.includes(a))) return plan
+  return rebuildPlan(swapDays(plan, dayIndex, recipe), prefs, locale)
+}
+
+/** Applies a persisted {day → recipeId} map in order. */
+export function applySwaps(plan: Plan, swaps: Record<number, string>, prefs: Prefs, locale: Locale): Plan {
+  const entries = Object.entries(swaps).sort(([a], [b]) => Number(a) - Number(b))
+  let current = plan
+  for (const [day, recipeId] of entries) {
+    current = applySwap(current, Number(day), recipeId, prefs, locale)
+  }
+  return current
 }
 
 const DAY_PATTERNS: [RegExp, number][] = [
