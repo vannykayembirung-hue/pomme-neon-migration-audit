@@ -75,7 +75,11 @@ export function RecipeView({
             <dl className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-oxblood/75">
               <div className="flex items-center gap-1.5">
                 <Clock className="size-4" aria-hidden="true" />
-                <dd>{recipe.time} min</dd>
+                <dd>
+                  {recipe.prepMinutes != null && recipe.cookMinutes != null
+                    ? `Prep ${recipe.prepMinutes} min · Cook ${recipe.cookMinutes} min`
+                    : `${recipe.time} min`}
+                </dd>
               </div>
               <div className="flex items-center gap-1.5">
                 <Users className="size-4" aria-hidden="true" />
@@ -110,6 +114,10 @@ export function RecipeView({
                 </li>
               ))}
             </ol>
+
+            {recipe.notes && (
+              <p className="mt-6 rounded-2xl bg-oxblood/5 px-4 py-3 text-sm text-oxblood/80">{recipe.notes}</p>
+            )}
 
             <button
               type="button"

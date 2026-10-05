@@ -27,7 +27,11 @@ export type Ingredient = IngredientBase & {
 export type Recipe = {
   id: string
   name: { us: string; uk?: string }
+  /** Total time in minutes — the number the plan engine filters on. */
   time: number
+  /** Optional breakdown for the recipe card ("Prep 10 min · Cook 25 min"). */
+  prepMinutes?: number
+  cookMinutes?: number
   costPerServingUsd: number
   moods: Mood[]
   contains: Avoid[]
@@ -35,6 +39,8 @@ export type Recipe = {
   image: string
   ingredients: Ingredient[]
   steps: string[]
+  /** Optional practical notes shown on the recipe card. */
+  notes?: string
 }
 
 const i = (
