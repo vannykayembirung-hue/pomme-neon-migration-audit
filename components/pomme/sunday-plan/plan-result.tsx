@@ -1,12 +1,14 @@
 'use client'
 
-import Image from 'next/image'
 import { useState } from 'react'
-import { Bookmark, CalendarArrowUp, Check, Moon, RefreshCw, Repeat, Sparkles } from 'lucide-react'
+import { AlertTriangle, Bookmark, CalendarArrowUp, Check, Clock, Moon, RefreshCw, Repeat, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { DAY_NAMES, formatMoney, type Plan } from '@/lib/pomme/plan'
-import { AISLE_LABELS, localName, type Locale } from '@/lib/pomme/recipes'
+import { DAY_NAMES, formatMoney, formatQty, type Plan } from '@/lib/pomme/plan'
+import { AISLE_LABELS, localName, type Locale, type Recipe } from '@/lib/pomme/recipes'
 import { usePomme } from '../pomme-provider'
+import { RecipeImage } from './recipe-image'
+import { RecipeView } from './recipe-view'
+import { SwapPicker } from './swap-picker'
 
 function formatMinutes(total: number) {
   const h = Math.floor(total / 60)
@@ -17,7 +19,7 @@ function formatMinutes(total: number) {
 function EmptyState() {
   return (
     <div className="relative flex h-full min-h-[420px] flex-col justify-end overflow-hidden rounded-3xl bg-oxblood p-7 text-cream">
-      <Image
+      <RecipeImage
         src="/images/hero-apple.webp"
         alt=""
         width={1024}
@@ -43,8 +45,17 @@ function EmptyState() {
   )
 }
 
-function WeekList({ plan, locale }: { plan: Plan; locale: Locale }) {
-  const { openPaywall } = usePomme()
+function WeekList({
+  plan,
+  locale,
+  onOpenRecipe,
+  onSwapRequest,
+}: {
+  plan: Plan
+  locale: Locale
+  onOpenRecipe: (recipe: Recipe, batch: boolean) => void
+  onSwapRequest: (day: number, recipe: Recipe) => void
+}) {
   return (
     <ol className="flex flex-col divide-y divide-border">
       {plan.days.map((entry) => (
@@ -67,7 +78,7 @@ function WeekList({ plan, locale }: { plan: Plan; locale: Locale }) {
             </>
           ) : entry.kind === 'leftovers' ? (
             <>
-              <Image
+              <RecipeImage
                 src={entry.recipe.image}
                 alt=""
                 width={112}
@@ -87,25 +98,36 @@ function WeekList({ plan, locale }: { plan: Plan; locale: Locale }) {
             </>
           ) : (
             <>
-              <Image
-                src={entry.recipe.image}
-                alt={localName(entry.recipe.name, locale)}
-                width={112}
-                height={112}
-                sizes="56px"
-                className="size-14 shrink-0 rounded-2xl object-cover"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-pretty font-bold leading-snug">{localName(entry.recipe.name, locale)}</p>
-                <p className="text-sm text-muted-foreground">
-                  {entry.recipe.time} min
-                  {entry.mode === 'quick' && ' · Quick night'}
-                  {entry.batch && ' · Makes extra'}
-                </p>
-              </div>
               <button
                 type="button"
-                onClick={() => openPaywall('swap')}
+                onClick={() => onOpenRecipe(entry.recipe, entry.batch)}
+                aria-label={`View recipe: ${localName(entry.recipe.name, locale)}`}
+                className="flex min-w-0 flex-1 items-center gap-4 rounded-2xl text-left transition hover:bg-secondary/60"
+              >
+                <RecipeImage
+                  src={entry.recipe.image}
+                  alt=""
+                  width={112}
+                  height={112}
+                  sizes="56px"
+                  className="size-14 shrink-0 rounded-2xl object-cover"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-pretty font-bold leading-snug">{localName(entry.recipe.name, locale)}</span>
+                  <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Clock className="size-3.5" aria-hidden="true" />
+                    {entry.recipe.time} min
+                    {entry.mode === 'quick' && ' · Quick night'}
+                    {entry.batch && ' · Makes extra'}
+                    {entry.overTime && (
+                      <span className="font-semibold text-apple"> · over your time</span>
+                    )}
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onSwapRequest(entry.day, entry.recipe)}
                 className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold transition hover:border-foreground/40"
               >
                 <RefreshCw className="size-3.5" aria-hidden="true" />
@@ -149,6 +171,14 @@ function Basket({ plan, locale }: { plan: Plan; locale: Locale }) {
                       className="size-4.5 shrink-0 accent-leaf-deep"
                     />
                     <span className={cn('flex-1', isChecked && 'text-muted-foreground line-through')}>{item.label}</span>
+                    <span
+                      className={cn(
+                        'shrink-0 text-sm font-semibold tabular-nums text-muted-foreground',
+                        isChecked && 'line-through',
+                      )}
+                    >
+                      {formatQty(item.amount, item.unit)}
+                    </span>
                     {item.meals > 1 && (
                       <span className="rounded-full bg-leaf-deep/10 px-2 py-0.5 text-[11px] font-semibold text-leaf-deep">
                         {item.meals} meals
@@ -166,7 +196,7 @@ function Basket({ plan, locale }: { plan: Plan; locale: Locale }) {
           <span className="font-semibold text-foreground">
             Probably already in your {locale === 'uk' ? 'cupboard' : 'pantry'}:
           </span>{' '}
-          {plan.staples.map((s) => s.label).join(', ')}
+          {plan.staples.map((s) => `${s.label} (${formatQty(s.amount, s.unit)})`).join(', ')}
         </p>
       )}
     </div>
@@ -174,13 +204,21 @@ function Basket({ plan, locale }: { plan: Plan; locale: Locale }) {
 }
 
 export function PlanResult() {
-  const { plan, locale, prefs, openPaywall } = usePomme()
+  const { plan, locale, prefs, openPaywall, freeSwapsLeft, swapMeal } = usePomme()
   const [tab, setTab] = useState<'week' | 'basket'>('week')
+  const [viewing, setViewing] = useState<{ recipe: Recipe; batch: boolean } | null>(null)
+  const [swapTarget, setSwapTarget] = useState<{ day: number; recipe: Recipe } | null>(null)
+  const [saved, setSaved] = useState(false)
 
   if (!plan) return <EmptyState />
 
-  const overBudget = plan.total > prefs.budget
+  const overBudget = plan.total > plan.budget
   const itemCount = plan.basket.reduce((sum, g) => sum + g.items.length, 0)
+
+  const handleSwapRequest = (day: number, recipe: Recipe) => {
+    if (freeSwapsLeft > 0) setSwapTarget({ day, recipe })
+    else openPaywall('swap')
+  }
 
   return (
     <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-3 duration-500" aria-live="polite">
@@ -213,10 +251,24 @@ export function PlanResult() {
             className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-leaf underline-offset-4 hover:underline"
           >
             <Sparkles className="size-3.5" aria-hidden="true" />
-            Bring it under {formatMoney(prefs.budget, locale)} with budget mode
+            Bring it under {formatMoney(plan.budget, locale)} with budget mode
           </button>
         )}
       </div>
+
+      {plan.warnings.length > 0 && (
+        <div
+          role="note"
+          className="flex items-start gap-2.5 rounded-2xl border border-apple/35 bg-apple/10 px-4 py-3.5 text-sm leading-relaxed text-oxblood"
+        >
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-apple" aria-hidden="true" />
+          <div className="flex flex-col gap-1">
+            {plan.warnings.map((warning) => (
+              <p key={warning}>{warning}</p>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-3xl border border-border bg-card p-5">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-apple">Pomme noticed</p>
@@ -256,23 +308,33 @@ export function PlanResult() {
           ))}
         </div>
         <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="mt-3">
-          {tab === 'week' ? <WeekList plan={plan} locale={locale} /> : <Basket plan={plan} locale={locale} />}
+          {tab === 'week' ? (
+            <WeekList plan={plan} locale={locale} onOpenRecipe={(recipe, batch) => setViewing({ recipe, batch })} onSwapRequest={handleSwapRequest} />
+          ) : (
+            <Basket plan={plan} locale={locale} />
+          )}
         </div>
       </div>
 
       <div className="flex flex-col gap-4 rounded-3xl bg-apple p-6 text-primary-foreground sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-lg font-black leading-tight">Want this every Sunday?</p>
-          <p className="mt-1 text-sm text-primary-foreground/85">Save it, swap anything, and let Pomme learn your week.</p>
+          <p className="mt-1 text-sm text-primary-foreground/85">
+            Your week saves to this device as you plan. Pomme Plus adds unlimited swaps and more.
+          </p>
         </div>
         <div className="flex shrink-0 gap-2">
           <button
             type="button"
-            onClick={() => openPaywall('save')}
-            className="inline-flex items-center gap-1.5 rounded-full bg-cream px-4 py-2.5 text-sm font-bold text-oxblood transition hover:bg-white"
+            onClick={() => setSaved(true)}
+            aria-pressed={saved}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-bold transition',
+              saved ? 'bg-white/20 text-primary-foreground' : 'bg-cream text-oxblood hover:bg-white',
+            )}
           >
-            <Bookmark className="size-4" aria-hidden="true" />
-            Save my plan
+            {saved ? <Check className="size-4" aria-hidden="true" /> : <Bookmark className="size-4" aria-hidden="true" />}
+            {saved ? 'Saved on this device' : 'Save my plan'}
           </button>
           <button
             type="button"
@@ -284,6 +346,30 @@ export function PlanResult() {
           </button>
         </div>
       </div>
+      {saved && (
+        <p role="status" className="text-center text-xs text-muted-foreground">
+          Your plan, basket and swaps survive a refresh on this device. Reset anytime from the footer.
+        </p>
+      )}
+
+      <RecipeView
+        recipe={viewing?.recipe ?? null}
+        servings={plan.servings}
+        batch={viewing?.batch ?? false}
+        locale={locale}
+        onClose={() => setViewing(null)}
+      />
+      <SwapPicker
+        open={swapTarget !== null}
+        currentRecipeId={swapTarget?.recipe.id ?? null}
+        avoid={prefs.avoid}
+        locale={locale}
+        onPick={(recipe) => {
+          if (swapTarget) swapMeal(swapTarget.day, recipe.id)
+          setSwapTarget(null)
+        }}
+        onClose={() => setSwapTarget(null)}
+      />
     </div>
   )
 }
