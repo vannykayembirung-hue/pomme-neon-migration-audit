@@ -11,12 +11,21 @@ export type PommeState = {
   seed: number
   /** day index → recipe id: swaps applied to the current week. */
   swaps: Record<number, string>
+  /** Grocery list checkboxes: ingredient keys ticked while shopping. Survives F5. */
+  checkedGroceryItems: string[]
 }
 
 export type Persisted = PommeState & { version: 1; savedAt: number }
 
 export function defaultState(locale: Locale): PommeState {
-  return { locale, prefs: { ...DEFAULT_PREFS, budget: DEFAULT_BUDGET[locale] }, planPrefs: null, seed: 0, swaps: {} }
+  return {
+    locale,
+    prefs: { ...DEFAULT_PREFS, budget: DEFAULT_BUDGET[locale] },
+    planPrefs: null,
+    seed: 0,
+    swaps: {},
+    checkedGroceryItems: [],
+  }
 }
 
 export function convertBudget(value: number, to: Locale) {
@@ -62,6 +71,15 @@ function parseSwaps(v: unknown): Record<number, string> {
   return out
 }
 
+function parseChecked(v: unknown): string[] {
+  if (!Array.isArray(v)) return []
+  const out: string[] = []
+  for (const key of v) {
+    if (typeof key === 'string' && key.length > 0 && key.length < 64 && !out.includes(key)) out.push(key)
+  }
+  return out
+}
+
 export function parsePersisted(raw: string | null, now = Date.now()): PommeState | null {
   if (!raw) return null
   try {
@@ -77,6 +95,7 @@ export function parsePersisted(raw: string | null, now = Date.now()): PommeState
       planPrefs: isPrefs(data.planPrefs) ? data.planPrefs : null,
       seed: data.seed,
       swaps: parseSwaps(data.swaps),
+      checkedGroceryItems: parseChecked(data.checkedGroceryItems),
     }
   } catch {
     return null

@@ -114,7 +114,7 @@ export function formatQty(amount: number, unit: QtyUnit): string {
   if (unit === 'tsp') return `${n} tsp`
   if (unit === 'cans') return `${n} ${n === 1 ? 'can' : 'cans'}`
   if (unit === 'packs') return `${n} ${n === 1 ? 'pack' : 'packs'}`
-  return `${n} ×`
+  return `${n} ${n === 1 ? 'pc' : 'pcs'}`
 }
 
 function jitter(id: string, seed: number) {

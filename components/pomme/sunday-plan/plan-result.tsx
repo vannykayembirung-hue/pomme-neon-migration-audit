@@ -142,14 +142,8 @@ function WeekList({
 }
 
 function Basket({ plan, locale }: { plan: Plan; locale: Locale }) {
-  const [checked, setChecked] = useState<Set<string>>(new Set())
-  const toggle = (key: string) =>
-    setChecked((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
+  // Checkboxes live in the persisted store: they survive F5 and follow the plan.
+  const { checkedGroceryItems, toggleGroceryItem } = usePomme()
 
   return (
     <div className="flex flex-col gap-6 py-2">
@@ -160,30 +154,27 @@ function Basket({ plan, locale }: { plan: Plan; locale: Locale }) {
           </h4>
           <ul className="mt-2 flex flex-col">
             {group.items.map((item) => {
-              const isChecked = checked.has(item.key)
+              const isChecked = checkedGroceryItems.includes(item.key)
               return (
                 <li key={item.key}>
-                  <label className="flex cursor-pointer items-center gap-3 rounded-xl px-1 py-2 transition hover:bg-secondary/60">
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl px-1 py-2 transition hover:bg-secondary/60">
                     <input
                       type="checkbox"
                       checked={isChecked}
-                      onChange={() => toggle(item.key)}
-                      className="size-4.5 shrink-0 accent-leaf-deep"
+                      onChange={() => toggleGroceryItem(item.key)}
+                      className="mt-1 size-4.5 shrink-0 accent-leaf-deep"
                     />
-                    <span className={cn('flex-1', isChecked && 'text-muted-foreground line-through')}>{item.label}</span>
-                    <span
-                      className={cn(
-                        'shrink-0 text-sm font-semibold tabular-nums text-muted-foreground',
-                        isChecked && 'line-through',
-                      )}
-                    >
-                      {formatQty(item.amount, item.unit)}
-                    </span>
-                    {item.meals > 1 && (
-                      <span className="rounded-full bg-leaf-deep/10 px-2 py-0.5 text-[11px] font-semibold text-leaf-deep">
-                        {item.meals} meals
+                    <span className="flex-1">
+                      <span className={cn('flex items-baseline gap-3', isChecked && 'text-muted-foreground line-through')}>
+                        <span className="flex-1">{item.label}</span>
+                        <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
+                          {formatQty(item.amount, item.unit)}
+                        </span>
                       </span>
-                    )}
+                      <span className={cn('mt-0.5 block text-xs text-muted-foreground', isChecked && 'line-through')}>
+                        Used in {item.meals} {item.meals === 1 ? 'meal' : 'meals'}
+                      </span>
+                    </span>
                   </label>
                 </li>
               )

@@ -152,8 +152,8 @@ test('formatQty prints shoppable numbers', () => {
     [2, 'cans', '2 cans'],
     [1, 'cans', '1 can'],
     [1, 'packs', '1 pack'],
-    [0.5, 'whole', '1 ×'],
-    [4, 'whole', '4 ×'],
+    [0.5, 'whole', '1 pc'],
+    [4, 'whole', '4 pcs'],
   ]
   for (const [amount, unit, expected] of cases) {
     assert.equal(formatQty(amount, unit), expected, `${amount} ${unit}`)

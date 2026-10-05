@@ -1,7 +1,15 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { createContext, useCallback, useContext, useMemo, useState, useSyncExternalStore } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import {
   DEFAULT_PREFS,
   applySwaps,
@@ -34,6 +42,9 @@ type PommeContextValue = {
   swaps: Record<number, string>
   swapMeal: (day: number, recipeId: string) => void
   freeSwapsLeft: number
+  /** Grocery checkboxes: ingredient keys ticked while shopping (persisted). */
+  checkedGroceryItems: string[]
+  toggleGroceryItem: (key: string) => void
   paywall: PaywallReason | null
   openPaywall: (reason: PaywallReason) => void
   closePaywall: () => void
@@ -53,7 +64,7 @@ export function PommeProvider({
   const store = useMemo(() => createPommeStore(defaultLocale), [defaultLocale])
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot)
   const [paywall, setPaywall] = useState<PaywallReason | null>(null)
-  const { locale, prefs, planPrefs, seed, swaps } = state
+  const { locale, prefs, planPrefs, seed, swaps, checkedGroceryItems } = state
 
   const router = useRouter()
 
@@ -114,6 +125,18 @@ export function PommeProvider({
     [store, locale],
   )
 
+  const toggleGroceryItem = useCallback(
+    (key: string) => {
+      store.update((s) => ({
+        ...s,
+        checkedGroceryItems: s.checkedGroceryItems.includes(key)
+          ? s.checkedGroceryItems.filter((k) => k !== key)
+          : [...s.checkedGroceryItems, key],
+      }))
+    },
+    [store],
+  )
+
   const openPaywall = useCallback(
     (reason: PaywallReason) => {
       if (!FEATURES.paywallVisible) return
@@ -131,6 +154,20 @@ export function PommeProvider({
     [seed, planPrefs, prefs, locale, swaps],
   )
 
+  // Checkboxes follow the current grocery list: when the plan changes (rework,
+  // week note, swap), keys that no longer exist are cleaned out; new items start
+  // unchecked; surviving keys keep their ticks. resetWeek() clears everything.
+  useEffect(() => {
+    if (!plan) return
+    const keys = new Set<string>()
+    for (const group of plan.basket) for (const item of group.items) keys.add(item.key)
+    for (const staple of plan.staples) keys.add(staple.key)
+    const pruned = checkedGroceryItems.filter((key) => keys.has(key))
+    if (pruned.length !== checkedGroceryItems.length) {
+      store.update((s) => ({ ...s, checkedGroceryItems: pruned }))
+    }
+  }, [plan, checkedGroceryItems, store])
+
   const value = useMemo<PommeContextValue>(
     () => ({
       locale,
@@ -144,11 +181,13 @@ export function PommeProvider({
       swaps,
       swapMeal,
       freeSwapsLeft: Math.max(0, FREE_SWAPS_PER_WEEK - Object.keys(swaps).length),
+      checkedGroceryItems,
+      toggleGroceryItem,
       paywall,
       openPaywall,
       closePaywall: () => setPaywall(null),
     }),
-    [locale, setLocale, prefs, setPrefs, plan, generate, applyWeekNote, resetWeek, swaps, swapMeal, paywall, openPaywall],
+    [locale, setLocale, prefs, setPrefs, plan, generate, applyWeekNote, resetWeek, swaps, swapMeal, checkedGroceryItems, toggleGroceryItem, paywall, openPaywall],
   )
 
   return <PommeContext.Provider value={value}>{children}</PommeContext.Provider>
