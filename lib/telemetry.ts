@@ -5,6 +5,7 @@ export type TelemetryEvent =
   | { type: 'paywall_open'; locale: string; reason: string }
   | { type: 'share'; locale: string; channel: string }
   | { type: 'newsletter_submit'; locale: string }
+  | { type: 'swap'; locale: string; reason: string }
 
 declare global {
   interface Window {

@@ -1,4 +1,4 @@
-import { BUDGET_RANGE, DEFAULT_PREFS, type Prefs } from './plan'
+import { BUDGET_RANGE, DEFAULT_BUDGET, DEFAULT_PREFS, type Prefs } from './plan'
 import type { Locale } from './recipes'
 
 export const STORAGE_KEY = 'pomme:v1'
@@ -9,12 +9,14 @@ export type PommeState = {
   prefs: Prefs
   planPrefs: Prefs | null
   seed: number
+  /** day index → recipe id: swaps applied to the current week. */
+  swaps: Record<number, string>
 }
 
 export type Persisted = PommeState & { version: 1; savedAt: number }
 
 export function defaultState(locale: Locale): PommeState {
-  return { locale, prefs: DEFAULT_PREFS, planPrefs: null, seed: 0 }
+  return { locale, prefs: { ...DEFAULT_PREFS, budget: DEFAULT_BUDGET[locale] }, planPrefs: null, seed: 0, swaps: {} }
 }
 
 export function convertBudget(value: number, to: Locale) {
@@ -48,6 +50,18 @@ function isPrefs(v: unknown): v is Prefs {
   )
 }
 
+function parseSwaps(v: unknown): Record<number, string> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+  const out: Record<number, string> = {}
+  for (const [day, recipeId] of Object.entries(v as Record<string, unknown>)) {
+    const d = Number(day)
+    if (Number.isInteger(d) && d >= 0 && d <= 6 && typeof recipeId === 'string' && recipeId.length > 0 && recipeId.length < 64) {
+      out[d] = recipeId
+    }
+  }
+  return out
+}
+
 export function parsePersisted(raw: string | null, now = Date.now()): PommeState | null {
   if (!raw) return null
   try {
@@ -62,6 +76,7 @@ export function parsePersisted(raw: string | null, now = Date.now()): PommeState
       prefs: data.prefs,
       planPrefs: isPrefs(data.planPrefs) ? data.planPrefs : null,
       seed: data.seed,
+      swaps: parseSwaps(data.swaps),
     }
   } catch {
     return null

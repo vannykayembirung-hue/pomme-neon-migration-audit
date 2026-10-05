@@ -4,8 +4,11 @@ import { useRouter } from 'next/navigation'
 import { createContext, useCallback, useContext, useMemo, useState, useSyncExternalStore } from 'react'
 import {
   DEFAULT_PREFS,
+  applySwaps,
+  findNextSeed,
   generatePlan,
   parseWeekNote,
+  planSignature,
   type Plan,
   type Prefs,
 } from '@/lib/pomme/plan'
@@ -16,6 +19,9 @@ import { track } from '@/lib/telemetry'
 
 export type PaywallReason = 'swap' | 'save' | 'budget' | 'next-week' | 'pricing'
 
+/** One real swap per week is free; extra swaps stay behind the Plus paywall. */
+export const FREE_SWAPS_PER_WEEK = 1
+
 type PommeContextValue = {
   locale: Locale
   setLocale: (locale: Locale) => void
@@ -25,6 +31,9 @@ type PommeContextValue = {
   generate: () => void
   applyWeekNote: (note: string) => void
   resetWeek: () => void
+  swaps: Record<number, string>
+  swapMeal: (day: number, recipeId: string) => void
+  freeSwapsLeft: number
   paywall: PaywallReason | null
   openPaywall: (reason: PaywallReason) => void
   closePaywall: () => void
@@ -44,7 +53,7 @@ export function PommeProvider({
   const store = useMemo(() => createPommeStore(defaultLocale), [defaultLocale])
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot)
   const [paywall, setPaywall] = useState<PaywallReason | null>(null)
-  const { locale, prefs, planPrefs, seed } = state
+  const { locale, prefs, planPrefs, seed, swaps } = state
 
   const router = useRouter()
 
@@ -63,14 +72,23 @@ export function PommeProvider({
   )
 
   const generate = useCallback(() => {
-    store.update((s) => ({ ...s, planPrefs: s.prefs, seed: s.seed + 1 }))
+    store.update((s) => {
+      // "Rework my plan" must visibly rework: skip seeds that reproduce the same week.
+      const previous = s.seed > 0 ? planSignature(generatePlan(s.planPrefs ?? s.prefs, locale, s.seed)) : null
+      const seed = findNextSeed(s.prefs, locale, s.seed + 1, previous)
+      return { ...s, planPrefs: s.prefs, seed, swaps: {} }
+    })
     track({ type: 'plan_generated', locale, mood: prefs.mood })
   }, [store, locale, prefs.mood])
 
   const applyWeekNote = useCallback(
     (note: string) => {
       const parsed = parseWeekNote(note, prefs, locale)
-      store.update((s) => ({ ...s, locale: parsed.locale, prefs: parsed.prefs, planPrefs: parsed.prefs, seed: s.seed + 1 }))
+      store.update((s) => {
+        const previous = s.seed > 0 ? planSignature(generatePlan(s.planPrefs ?? s.prefs, locale, s.seed)) : null
+        const seed = findNextSeed(parsed.prefs, parsed.locale, s.seed + 1, previous)
+        return { ...s, locale: parsed.locale, prefs: parsed.prefs, planPrefs: parsed.prefs, seed, swaps: {} }
+      })
       track({ type: 'plan_generated', locale: parsed.locale, mood: parsed.prefs.mood })
       if (parsed.locale !== defaultLocale) {
         router.push(pathFor(parsed.locale))
@@ -88,6 +106,14 @@ export function PommeProvider({
     setPaywall(null)
   }, [store])
 
+  const swapMeal = useCallback(
+    (day: number, recipeId: string) => {
+      store.update((s) => ({ ...s, swaps: { ...s.swaps, [day]: recipeId } }))
+      track({ type: 'swap', locale, reason: `day-${day}` })
+    },
+    [store, locale],
+  )
+
   const openPaywall = useCallback(
     (reason: PaywallReason) => {
       if (!FEATURES.paywallVisible) return
@@ -98,8 +124,11 @@ export function PommeProvider({
   )
 
   const plan = useMemo(
-    () => (seed > 0 ? generatePlan(planPrefs ?? prefs, locale, seed) : null),
-    [seed, planPrefs, prefs, locale],
+    () =>
+      seed > 0
+        ? applySwaps(generatePlan(planPrefs ?? prefs, locale, seed), swaps, planPrefs ?? prefs, locale)
+        : null,
+    [seed, planPrefs, prefs, locale, swaps],
   )
 
   const value = useMemo<PommeContextValue>(
@@ -112,11 +141,14 @@ export function PommeProvider({
       generate,
       applyWeekNote,
       resetWeek,
+      swaps,
+      swapMeal,
+      freeSwapsLeft: Math.max(0, FREE_SWAPS_PER_WEEK - Object.keys(swaps).length),
       paywall,
       openPaywall,
       closePaywall: () => setPaywall(null),
     }),
-    [locale, setLocale, prefs, setPrefs, plan, generate, applyWeekNote, resetWeek, paywall, openPaywall],
+    [locale, setLocale, prefs, setPrefs, plan, generate, applyWeekNote, resetWeek, swaps, swapMeal, paywall, openPaywall],
   )
 
   return <PommeContext.Provider value={value}>{children}</PommeContext.Provider>
