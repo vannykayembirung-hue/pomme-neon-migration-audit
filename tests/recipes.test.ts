@@ -74,16 +74,6 @@ test('same ingredient key always uses the same unit across recipes', () => {
  * test then enforces every file strictly.
  */
 const PENDING_IMAGES = new Set([
-  'pesto-pasta',
-  'turkey-meatballs',
-  'fish-tacos',
-  'sausage-ragu',
-  'chicken-noodle-soup',
-  'matar-paneer',
-  'chicken-caesar',
-  'mac-cheese',
-  'chicken-traybake',
-  'egg-ramen',
   'prawn-stirfry',
 ])
 
