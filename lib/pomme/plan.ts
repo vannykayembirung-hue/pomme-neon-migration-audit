@@ -356,6 +356,16 @@ export function findNextSeed(
   return lastVerified
 }
 
+/**
+ * Replacement options for one day: never the same meal, never a recipe
+ * containing an avoided item. Deterministic order (catalogue order).
+ */
+export function swapOptions(currentRecipeId: string | null, avoid: readonly string[]): Recipe[] {
+  return RECIPES.filter(
+    (r) => r.id !== currentRecipeId && !r.contains.some((a) => avoid.includes(a)),
+  )
+}
+
 function swapDays(plan: Plan, dayIndex: number, recipe: Recipe): PlanDay[] {
   return plan.days.map((entry) => {
     if (entry.kind === 'meal' && entry.day === dayIndex) {

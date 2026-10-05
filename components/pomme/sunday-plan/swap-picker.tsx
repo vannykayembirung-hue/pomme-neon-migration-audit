@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from 'react'
 import { Clock, X } from 'lucide-react'
-import { formatMoney } from '@/lib/pomme/plan'
-import { RECIPES, localName, type Locale, type Recipe } from '@/lib/pomme/recipes'
+import { formatMoney, swapOptions } from '@/lib/pomme/plan'
+import { localName, type Locale, type Recipe } from '@/lib/pomme/recipes'
 import { RecipeImage } from './recipe-image'
 
 /**
@@ -37,9 +37,9 @@ export function SwapPicker({
     }
   }, [open])
 
-  const options = RECIPES.filter(
-    (r) => r.id !== currentRecipeId && !r.contains.some((a) => avoid.includes(a)),
-  ).sort((a, b) => localName(a.name, locale).localeCompare(localName(b.name, locale)))
+  const options = swapOptions(currentRecipeId, avoid).sort((a, b) =>
+    localName(a.name, locale).localeCompare(localName(b.name, locale)),
+  )
 
   return (
     <dialog
