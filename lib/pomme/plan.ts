@@ -203,7 +203,10 @@ export function rebuildPlan(days: PlanDay[], prefs: Prefs, locale: Locale): Plan
   const slotCount = days.filter((d) => d.kind === 'meal').length
   const pool = eligiblePool(prefs)
   const repeatedHard = [...cooked.values()].some((n) => n > 2)
-  if (repeatedHard || pool.length < slotCount) {
+  // A repeat never counts as a new recipe: if the meals actually cooked cover
+  // fewer distinct recipes than there are slots, scarcity forced the repeat and
+  // the week must not look normally varied.
+  if (repeatedHard || cooked.size < slotCount || pool.length < slotCount) {
     warnings.push('Limited variety this week — here’s what Pomme can do with your restrictions.')
   }
   const overTimeMeals = days.filter(
@@ -306,20 +309,28 @@ export function planSignature(plan: Plan): string {
     .join('|')
 }
 
-/** First seed ≥ start whose plan differs from `previous`, so "Rework my plan" always visibly reworks. */
+/**
+ * First seed ≥ start whose plan differs from `previous`, so "Rework my plan" always visibly reworks.
+ * Every returned seed is verified against `previous`; when no seed within `maxTries`
+ * can produce a different week (seed-invariant pool), the change is impossible with
+ * the available constraints and the last verified seed is returned deterministically.
+ */
 export function findNextSeed(
   prefs: Prefs,
   locale: Locale,
   startSeed: number,
   previous: string | null,
-  maxTries = 8,
+  maxTries = 32,
 ): number {
   let seed = Math.max(1, startSeed)
+  let lastVerified = seed
   for (let attempt = 0; attempt < maxTries; attempt++) {
-    if (!previous || planSignature(generatePlan(prefs, locale, seed)) !== previous) return seed
+    const signature = planSignature(generatePlan(prefs, locale, seed))
+    if (!previous || signature !== previous) return seed
+    lastVerified = seed
     seed++
   }
-  return seed
+  return lastVerified
 }
 
 function swapDays(plan: Plan, dayIndex: number, recipe: Recipe): PlanDay[] {
