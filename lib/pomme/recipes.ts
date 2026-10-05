@@ -3,8 +3,12 @@ export type Mood = 'cosy' | 'fresh' | 'energised' | 'easy'
 export type Avoid = 'meat' | 'fish' | 'mushroom' | 'cilantro' | 'spicy' | 'dairy'
 export type Aisle = 'produce' | 'protein' | 'dairy' | 'bakery' | 'pantry' | 'frozen'
 
-/** Shopping units. `whole` is a countable item (an onion, a lemon). */
-export type QtyUnit = 'g' | 'ml' | 'tbsp' | 'tsp' | 'cans' | 'packs' | 'whole'
+/**
+ * Shopping units. `whole` is a countable item (an onion, a lemon).
+ * `kg`/`l` are accepted on input and normalised to `g`/`ml` before summing
+ * (1 kg = 1000 g, 1 l = 1000 ml) — never mixed with other units.
+ */
+export type QtyUnit = 'g' | 'kg' | 'ml' | 'l' | 'tbsp' | 'tsp' | 'cans' | 'packs' | 'whole'
 
 export type IngredientBase = {
   key: string

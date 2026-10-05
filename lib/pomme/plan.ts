@@ -98,8 +98,11 @@ export function formatMoney(value: number, locale: Locale) {
 
 const roundUp = (value: number, step: number) => Math.ceil(value / step - 1e-9) * step
 
-/** Human shopping quantity for a weekly total, e.g. "2 cans", "500 g", "1.2 kg", "3 ×". */
+/** Human shopping quantity for a weekly total, e.g. "2 cans", "500 g", "1.2 kg", "1.3 l", "3 ×". */
 export function formatQty(amount: number, unit: QtyUnit): string {
+  // kg/l are display-equivalents of g/ml (1 kg = 1000 g, 1 l = 1000 ml).
+  if (unit === 'kg') return formatQty(amount * 1000, 'g')
+  if (unit === 'l') return formatQty(amount * 1000, 'ml')
   if (unit === 'g') {
     return amount >= 1000 ? `${(roundUp(amount, 100) / 1000).toFixed(1).replace(/\.0$/, '')} kg` : `${roundUp(amount, 5)} g`
   }
@@ -127,6 +130,13 @@ const eligiblePool = (prefs: Prefs) => {
 
 const timeLimitFor = (mode: DayMode, prefs: Prefs) => (mode === 'quick' ? MAX_QUICK_TIME : prefs.cookTime)
 
+/** Base family for safe summing: kg→g, l→ml (1 kg = 1000 g, 1 l = 1000 ml); every other unit stands alone. */
+const unitFamily = (unit: QtyUnit): QtyUnit => (unit === 'kg' ? 'g' : unit === 'l' ? 'ml' : unit)
+
+/** Express a per-serving amount in its unit family before any sum. */
+const toBaseAmount = (amount: number, unit: QtyUnit): number =>
+  unit === 'kg' || unit === 'l' ? amount * 1000 : amount
+
 /**
  * Rebuilds every derived value (basket, quantities, cost, notes, warnings) from a
  * fixed week of days. Single source of truth for generatePlan and applySwap.
@@ -146,25 +156,38 @@ export function rebuildPlan(days: PlanDay[], prefs: Prefs, locale: Locale): Plan
     const servings = prefs.household * (entry.batch ? 2 : 1)
     total += priceFor(entry.recipe.costPerServingUsd, locale) * servings
     for (const ing of entry.recipe.ingredients) {
-      const existing = items.get(ing.key)
+      // Aggregate on (key, unit family): identical ingredients sum up across
+      // recipes (200 g + 300 g + 250 g → 750 g), kg/l convert into g/ml first,
+      // and incompatible units never add up — they stay on separate lines.
+      const family = unitFamily(ing.unit)
+      const groupKey = `${ing.key}\u0000${family}`
+      const amount = toBaseAmount(ing.qtyPerServing * servings, ing.unit)
+      const existing = items.get(groupKey)
       if (existing) {
         existing.meals++
-        existing.amount += ing.qtyPerServing * servings
+        existing.amount += amount
       } else {
-        items.set(ing.key, {
+        items.set(groupKey, {
           key: ing.key,
           label: localName(ing, locale),
           aisle: ing.aisle,
           meals: 1,
           staple: Boolean(ing.staple),
-          amount: ing.qtyPerServing * servings,
-          unit: ing.unit,
+          amount,
+          unit: family,
         })
       }
     }
   }
 
   const all = [...items.values()]
+  // Retrocompatible keys: a key aggregated in one unit keeps its plain id; a key
+  // split across incompatible units gets one distinct line per unit family.
+  const keyCounts = new Map<string, number>()
+  for (const it of all) keyCounts.set(it.key, (keyCounts.get(it.key) ?? 0) + 1)
+  for (const it of all) {
+    if ((keyCounts.get(it.key) ?? 0) > 1) it.key = `${it.key}-${it.unit}`
+  }
   const basket = AISLE_ORDER.map((aisle) => ({
     aisle,
     items: all.filter((it) => it.aisle === aisle && !it.staple).sort((a, b) => b.meals - a.meals),
