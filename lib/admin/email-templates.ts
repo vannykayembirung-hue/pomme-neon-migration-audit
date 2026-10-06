@@ -1,7 +1,8 @@
 import { SITE_URL } from '@/lib/site'
 
 export const POSTAL_ADDRESS =
-  process.env.POMME_POSTAL_ADDRESS ?? 'Pomme Ltd, [registered address], United Kingdom and United States'
+  process.env.POMME_POSTAL_ADDRESS ??
+  'Ghost Mail Limited · Company no. 11432238 · 61 Bridge Street, Kington, Herefordshire, HR5 3DJ, United Kingdom'
 
 import type { Mail } from './email'
 
