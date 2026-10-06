@@ -1,7 +1,18 @@
 import type { MetadataRoute } from 'next'
 import { SITE_URL } from '@/lib/site'
 
-const CONTENT = ['mealime-alternative', 'platejoy-alternative', 'best-sunday-meal-planner-2026']
+const CONTENT = [
+  'mealime-alternative',
+  'platejoy-alternative',
+  'best-sunday-meal-planner-2026',
+  'weekly-meal-planner-with-grocery-list',
+  'meal-planning-for-beginners',
+  'meal-plan-on-a-budget',
+  'meal-planner-for-busy-families',
+  'sunday-reset-routine',
+  'eat-this-much-alternative',
+  'how-to-reduce-food-waste',
+]
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const languages = { 'en-US': SITE_URL, 'en-GB': `${SITE_URL}/uk` }
