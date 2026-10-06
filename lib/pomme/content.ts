@@ -4,8 +4,8 @@ export const PRICES: Record<
   Locale,
   { monthly: number; annual: number; symbol: string; currency: string }
 > = {
-  us: { monthly: 9.99, annual: 79, symbol: '$', currency: 'USD' },
-  uk: { monthly: 8.99, annual: 69, symbol: '£', currency: 'GBP' },
+  us: { monthly: 5.99, annual: 49, symbol: '$', currency: 'USD' },
+  uk: { monthly: 4.99, annual: 39, symbol: '£', currency: 'GBP' },
 }
 
 export function priceLabel(value: number, locale: Locale) {
