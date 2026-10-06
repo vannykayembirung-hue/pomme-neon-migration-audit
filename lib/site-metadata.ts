@@ -11,6 +11,7 @@ export const baseMetadata: Metadata = {
     'Tell Pomme how your week looks. She plans your dinners, writes your grocery list and keeps it all on budget, then learns your rhythm week by week.',
   applicationName: 'Pomme',
   keywords: ['weekly meal planner', 'grocery list app', 'meal planning on a budget', 'Sunday reset'],
+  verification: { google: 'LuPphjVQBDx-cNY_kLya9OVLsXyfOkEp6h47EZGXMvg' },
   alternates: { canonical: '/', languages: { 'en-US': '/', 'en-GB': '/uk', 'x-default': '/' } },
   appleWebApp: { capable: true, title: 'Pomme', statusBarStyle: 'black-translucent' },
   openGraph: {
