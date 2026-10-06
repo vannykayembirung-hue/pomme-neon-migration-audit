@@ -192,9 +192,9 @@ export function AccountPanel() {
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ plan, locale }),
                         })
-                        const d = await res.json()
+                        const d = await res.json().catch(() => null)
                         if (d?.checkoutUrl) window.location.href = d.checkoutUrl
-                        else setMessage('The payment page did not open — try again in a moment.')
+                        else setMessage(d?.hint ?? 'The payment page did not open — try again in a moment.')
                       } catch {
                         setMessage('The payment page did not open — try again in a moment.')
                       } finally {

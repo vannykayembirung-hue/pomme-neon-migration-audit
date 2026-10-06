@@ -35,6 +35,7 @@ export function Paywall() {
   const ref = useRef<HTMLDialogElement>(null)
   const [billing, setBilling] = useState<'annual' | 'monthly'>('annual')
   const [checkout, setCheckout] = useState<'idle' | 'busy' | 'error'>('idle')
+  const [checkoutHint, setCheckoutHint] = useState('')
   const [reason, setReason] = useState<PaywallReason>('pricing')
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export function Paywall() {
     if (paywall) {
       setReason(paywall)
       setCheckout('idle')
+      setCheckoutHint('')
       if (!dialog.open) dialog.showModal()
     } else if (dialog.open) {
       dialog.close()
@@ -146,13 +148,15 @@ export function Paywall() {
                 window.location.href = '/account'
                 return
               }
-              const d = await res.json()
+              const d = await res.json().catch(() => null)
               if (d?.checkoutUrl) {
                 window.location.href = d.checkoutUrl
                 return
               }
+              setCheckoutHint(d?.hint ?? '')
               setCheckout('error')
             } catch {
+              setCheckoutHint('')
               setCheckout('error')
             }
           }}
@@ -162,7 +166,7 @@ export function Paywall() {
         </button>
         {checkout === 'error' && (
           <p role="status" className="relative mt-3 rounded-2xl bg-cream/10 px-4 py-3 text-sm text-cream">
-            The payment page did not open. Try again in a moment — nothing has been charged.
+            {checkoutHint || 'The payment page did not open. Try again in a moment — nothing has been charged.'}
           </p>
         )}
         <p className="relative mt-3 text-center text-xs text-cream/55">

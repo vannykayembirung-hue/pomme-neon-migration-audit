@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   if (payload?.event === 'transaction.success' || payload?.event === 'webhook.test') {
     const pending = await pendingOrders()
     for (const order of pending) {
-      const session = await getCheckoutStatus(order.id)
+      const session = (await getCheckoutStatus(order.id)).data
       if (sessionPaid(session)) await settleOrder(order.id)
     }
   }

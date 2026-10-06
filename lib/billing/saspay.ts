@@ -28,8 +28,10 @@ export type CheckoutSession = {
   transaction: { status?: string; reference?: string } | null
 }
 
-async function call<T>(path: string, init?: RequestInit): Promise<T | null> {
-  if (!key()) return null
+export type SaspayResult<T> = { data: T | null; status: number; detail: string }
+
+async function call<T>(path: string, init?: RequestInit): Promise<SaspayResult<T>> {
+  if (!key()) return { data: null, status: 0, detail: 'no-api-key' }
   const res = await fetch(`${API}${path}`, {
     ...init,
     headers: {
@@ -39,14 +41,22 @@ async function call<T>(path: string, init?: RequestInit): Promise<T | null> {
     },
     cache: 'no-store',
   }).catch(() => null)
-  if (!res || !res.ok) return null
-  const body = (await res.json().catch(() => null)) as { success?: boolean; data?: T } | T | null
-  if (!body) return null
+  if (!res) return { data: null, status: 0, detail: 'network-error' }
+  type Envelope = { success?: boolean; data?: T; error?: unknown }
+  const body = (await res.json().catch(() => null)) as Envelope | T | null
+  if (!res.ok) {
+    const detail =
+      body && typeof body === 'object' && 'error' in body
+        ? JSON.stringify((body as Envelope).error).slice(0, 180)
+        : `http-${res.status}`
+    return { data: null, status: res.status, detail }
+  }
+  if (!body) return { data: null, status: res.status, detail: 'empty-body' }
   // The live API wraps payloads as { success, data } — accept both shapes.
   if (typeof body === 'object' && body !== null && 'success' in body && 'data' in body) {
-    return (body as { data: T }).data
+    return { data: (body as Envelope).data ?? null, status: res.status, detail: 'ok' }
   }
-  return body as T
+  return { data: body as T, status: res.status, detail: 'ok' }
 }
 
 export function createCheckoutSession(input: {

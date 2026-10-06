@@ -21,8 +21,13 @@ export async function GET(request: Request) {
   const id = new URL(request.url).searchParams.get('id') ?? ''
   if (!id) return NextResponse.json({ error: 'bad-request' }, { status: 400 })
 
-  const session = await getCheckoutStatus(id)
-  if (!session) return NextResponse.json({ error: 'status-unavailable' }, { status: 502 })
+  const statusResult = await getCheckoutStatus(id)
+  const session = statusResult.data
+  if (!session)
+    return NextResponse.json(
+      { error: 'status-unavailable', hint: `SasPay status check failed (${statusResult.status}: ${statusResult.detail}).` },
+      { status: 502 },
+    )
 
   const settled = sessionPaid(session) ? await settleOrder(id) : null
   const ent = await getEntitlement(account.email)
