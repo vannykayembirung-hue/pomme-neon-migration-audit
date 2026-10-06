@@ -57,8 +57,22 @@ export default async function AdminPage() {
               <Stat label="All time" value={m.plans.all} />
             </div>
           </Card>
+          <Card title="Accounts">
+            <div className="grid grid-cols-2 gap-2">
+              <Stat label="Registered accounts" value={m.accounts.users} />
+              <Stat label="Weeks saved to the cloud" value={m.accounts.savedWeeks} />
+            </div>
+          </Card>
           <Card title="Newsletter">
             <Stat label="Confirmed subscribers" value={m.newsletter.subscribers} />
+            <p className="mt-2 text-xs text-oxblood/70">{m.newsletter.pending} awaiting confirmation</p>
+          </Card>
+          <Card title="Email queue">
+            {Object.keys(m.emailQueue).length === 0 ? (
+              <p className="text-sm text-oxblood/70">Nothing yet.</p>
+            ) : (
+              <Tally rows={Object.entries(m.emailQueue).sort((a, b) => b[1] - a[1])} />
+            )}
           </Card>
           <Card title="Cookie consent">
             <Stat label={`Accepted (all or some) of ${m.consent.total} choices`} value={m.consent.acceptRatePct === null ? 'n/a' : `${m.consent.acceptRatePct}%`} />

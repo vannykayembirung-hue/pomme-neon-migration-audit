@@ -1,6 +1,6 @@
-import { desc } from 'drizzle-orm'
+import { desc, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { sentLog } from '@/lib/db/schema'
+import { pendingSubscribers, sentLog, users, weeklyPlans } from '@/lib/db/schema'
 import { consentCounts, listEvents } from './events'
 import { queueHealth } from './queue'
 import { subscriberCount } from './subscribers'
@@ -8,12 +8,15 @@ import { subscriberCount } from './subscribers'
 const DAY = 24 * 60 * 60 * 1000
 
 export async function getMetrics() {
-  const [events, subscribers, consent, sentRows, queue] = await Promise.all([
+  const [events, subscribers, consent, sentRows, queue, accounts, savedWeeks, pending] = await Promise.all([
     listEvents(),
     subscriberCount(),
     consentCounts(),
     db.select().from(sentLog).orderBy(desc(sentLog.at)).limit(20),
     queueHealth(),
+    db.select({ n: sql<number>`count(*)::int` }).from(users),
+    db.select({ n: sql<number>`count(*)::int` }).from(weeklyPlans),
+    db.select({ n: sql<number>`count(*)::int` }).from(pendingSubscribers),
   ])
   const now = Date.now()
   const plans = events.filter((e) => e.type === 'plan_generated')
@@ -31,7 +34,8 @@ export async function getMetrics() {
     moods: tally(plans).slice(0, 6),
     paywallByReason: tally(events.filter((e) => e.type === 'paywall_open')),
     shares: tally(events.filter((e) => e.type === 'share')),
-    newsletter: { subscribers },
+    accounts: { users: accounts[0]?.n ?? 0, savedWeeks: savedWeeks[0]?.n ?? 0 },
+    newsletter: { subscribers, pending: pending[0]?.n ?? 0 },
     emailQueue: queue,
     consent: {
       ...consent,
