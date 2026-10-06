@@ -12,6 +12,11 @@ const CONTENT = [
   'sunday-reset-routine',
   'eat-this-much-alternative',
   'how-to-reduce-food-waste',
+  'paprika-app-alternative',
+  'mealime-vs-platejoy',
+  'cheap-meals-for-the-week',
+  'meal-prep-vs-meal-planning',
+  'dinner-ideas-for-the-week',
 ]
 
 export default function sitemap(): MetadataRoute.Sitemap {
