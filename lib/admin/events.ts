@@ -4,11 +4,11 @@ import { consentChoices, events } from '@/lib/db/schema'
 
 export type StoredEvent = { at: string; type: string; locale: string; detail?: string }
 const MAX = 5000
-const ALLOWED = new Set(['plan_generated', 'paywall_open', 'share', 'newsletter_submit'])
+const ALLOWED = new Set(['plan_generated', 'paywall_open', 'share', 'newsletter_submit', 'swap', 'visit', 'page_view', 'signup', 'login', 'plan_saved'])
 
 export async function recordEvent(type: string, locale: string, detail?: string) {
   if (!ALLOWED.has(type)) return
-  await db.insert(events).values({ type, locale: locale === 'uk' ? 'uk' : 'us', detail: detail?.slice(0, 40) })
+  await db.insert(events).values({ type, locale: locale === 'uk' ? 'uk' : 'us', detail: detail?.slice(0, 160) })
 }
 
 /** Most recent events, oldest first. */

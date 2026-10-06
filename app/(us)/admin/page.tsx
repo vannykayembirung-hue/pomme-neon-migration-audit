@@ -72,7 +72,7 @@ function Funnel({ steps }: { steps: [string, number][] }) {
     <ul className="flex flex-col gap-3">
       {steps.map(([label, n], i) => {
         const w = Math.max(2, Math.round((n / max) * 100))
-        const conv = i === 0 ? null : Math.round((n / Math.max(1, steps[i - 1][1])) * 100)
+        const conv = i === 0 || steps[i - 1][1] === 0 ? null : Math.round((n / steps[i - 1][1]) * 100)
         return (
           <li key={label}>
             <div className="flex items-baseline justify-between text-sm">

@@ -1,6 +1,6 @@
-import { desc, gte, sql } from 'drizzle-orm'
+import { desc, sql } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { events as eventsTable, pendingSubscribers, sentLog, weeklyPlans } from '@/lib/db/schema'
+import { pendingSubscribers, sentLog, weeklyPlans } from '@/lib/db/schema'
 import { consentCounts, listEvents } from './events'
 import { queueHealth } from './queue'
 import { subscriberCount } from './subscribers'
@@ -22,17 +22,17 @@ export async function getMetrics(rangeDays = 30, locale: RangeLocale = 'all') {
   const days = Math.min(90, Math.max(2, Math.floor(rangeDays)))
   const since = new Date(Date.now() - (days - 1) * DAY)
 
-  const [events, subscribers, consent, sentRows, queue, savedWeeks, pending, ranged, accounts] = await Promise.all([
+  const [events, subscribers, consent, sentRows, queue, pending, accounts] = await Promise.all([
     listEvents(),
     subscriberCount(),
     consentCounts(),
     db.select().from(sentLog).orderBy(desc(sentLog.at)).limit(20),
     queueHealth(),
-    db.select({ n: sql<number>`count(*)::int` }).from(weeklyPlans),
     db.select({ n: sql<number>`count(*)::int` }).from(pendingSubscribers),
-    db.select().from(eventsTable).where(gte(eventsTable.at, since)),
     listAccounts(),
   ])
+  // Range filter in memory over the recent event window (listEvents keeps the newest 5 000).
+  const ranged = events.filter((e) => Date.parse(e.at) >= since.getTime())
 
   // ── Analytics scope: the selected window and locale. ────────────────────────
   const scoped = ranged.filter((e) => locale === 'all' || e.locale === locale)
