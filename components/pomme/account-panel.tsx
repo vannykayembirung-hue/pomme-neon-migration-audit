@@ -22,6 +22,7 @@ export function AccountPanel() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [refresh, setRefresh] = useState(0)
+  const [ent, setEnt] = useState<{ isPlus: boolean; plusUntil: string | null } | null>(null)
   const pathname = usePathname()
   const locale = pathname?.startsWith('/uk') ? 'uk' : 'us'
   const weekHref = locale === 'uk' ? '/uk/#sunday-plan' : '/#sunday-plan'
@@ -31,6 +32,12 @@ export function AccountPanel() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d?.ok) setAccount({ email: d.email, savedAt: d.savedAt ?? null })
+      })
+      .catch(() => {})
+    fetch('/api/billing/entitlement')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.ok) setEnt({ isPlus: !!d.isPlus, plusUntil: d.plusUntil ?? null })
       })
       .catch(() => {})
   }, [])
@@ -79,6 +86,12 @@ export function AccountPanel() {
     setAccount({ email: d.email, savedAt: d.savedAt })
     track({ type: mode === 'signup' ? 'signup' : 'login', locale })
     setMessage('You are in. Your week follows your account.')
+    fetch('/api/billing/entitlement')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.ok) setEnt({ isPlus: !!d.isPlus, plusUntil: d.plusUntil ?? null })
+      })
+      .catch(() => {})
     setRefresh((n) => n + 1)
   }
 
@@ -159,6 +172,42 @@ export function AccountPanel() {
                 ? `Saved to your account · ${new Date(account.savedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
                 : 'Not saved to your account yet — tap Save below.'}
             </p>
+            <p className="mt-1 text-xs font-bold text-leaf">
+              {ent?.isPlus && ent.plusUntil
+                ? `Pomme Plus · until ${new Date(ent.plusUntil).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })}`
+                : 'Free plan'}
+            </p>
+            {ent && !ent.isPlus && (
+              <div className="mt-2 flex gap-2">
+                {(['monthly', 'annual'] as const).map((plan) => (
+                  <button
+                    key={plan}
+                    type="button"
+                    disabled={busy}
+                    onClick={async () => {
+                      setBusy(true)
+                      try {
+                        const res = await fetch('/api/billing/checkout', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ plan, locale }),
+                        })
+                        const d = await res.json()
+                        if (d?.checkoutUrl) window.location.href = d.checkoutUrl
+                        else setMessage('The payment page did not open — try again in a moment.')
+                      } catch {
+                        setMessage('The payment page did not open — try again in a moment.')
+                      } finally {
+                        setBusy(false)
+                      }
+                    }}
+                    className="rounded-xl bg-cream px-3.5 py-2 text-xs font-bold text-oxblood transition hover:brightness-105 disabled:opacity-60"
+                  >
+                    Get Plus · {plan === 'monthly' ? '30 days' : '365 days'}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* LE bouton : une seule action évidente */}

@@ -1,4 +1,4 @@
-import { bigserial, integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { bigserial, boolean, integer, jsonb, pgTable, text, timestamp, unique, uuid, varchar } from 'drizzle-orm/pg-core'
 
 export const subscribers = pgTable('pomme_subscribers', {
   email: text('email').primaryKey(),
@@ -82,4 +82,21 @@ export const weeklyPlans = pgTable('pomme_weekly_plans', {
   /** Full PommeState payload (prefs, planPrefs, seed, swaps, checked, savedAt). */
   state: jsonb('state').notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+})
+
+// ── Phase 2.9: prepaid Pomme Plus (SasPay). Keyed by email. ──────────────────
+
+export const entitlements = pgTable('pomme_entitlements', {
+  email: text('email').primaryKey(),
+  plusUntil: timestamp('plus_until', { withTimezone: true, mode: 'date' }),
+  trialUsed: boolean('trial_used').notNull().default(false),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+})
+
+export const orders = pgTable('pomme_orders', {
+  id: text('id').primaryKey(),
+  email: text('email').notNull(),
+  plan: text('plan').notNull(),
+  status: text('status').notNull().default('pending'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 })

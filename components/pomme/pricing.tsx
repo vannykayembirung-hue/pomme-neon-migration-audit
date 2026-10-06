@@ -76,7 +76,7 @@ export function Pricing() {
               <span className="text-5xl font-black tracking-tight">{priceLabel(price.monthly, locale)}</span>
               <span className="text-muted-foreground">/month</span>
             </p>
-            <p className="mt-2 text-sm text-muted-foreground">Everything, billed monthly.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Everything, for 30 days at a time.</p>
             <FeatureList items={PLUS_FEATURES} tone="light" />
             <button
               type="button"
@@ -124,7 +124,7 @@ export function Pricing() {
           </article>
         </div>
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          Cancel anytime in two taps. Your free plan stays yours either way.
+          One payment, no auto-renewal. Your free plan stays yours either way.
         </p>
       </div>
     </section>

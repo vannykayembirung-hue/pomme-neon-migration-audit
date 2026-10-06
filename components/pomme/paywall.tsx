@@ -34,7 +34,7 @@ export function Paywall() {
   const { paywall, closePaywall, locale } = usePomme()
   const ref = useRef<HTMLDialogElement>(null)
   const [billing, setBilling] = useState<'annual' | 'monthly'>('annual')
-  const [started, setStarted] = useState(false)
+  const [checkout, setCheckout] = useState<'idle' | 'busy' | 'error'>('idle')
   const [reason, setReason] = useState<PaywallReason>('pricing')
 
   useEffect(() => {
@@ -42,7 +42,7 @@ export function Paywall() {
     if (!dialog) return
     if (paywall) {
       setReason(paywall)
-      setStarted(false)
+      setCheckout('idle')
       if (!dialog.open) dialog.showModal()
     } else if (dialog.open) {
       dialog.close()
@@ -131,21 +131,43 @@ export function Paywall() {
           })}
         </div>
 
-        {started ? (
-          <p role="status" className="relative mt-6 rounded-2xl bg-leaf/15 px-4 py-3 text-sm text-cream ring-1 ring-leaf/40">
-            You’re early, and we love that. Trials open at launch. This preview doesn’t take payments yet.
+        <button
+          type="button"
+          disabled={checkout === 'busy'}
+          onClick={async () => {
+            setCheckout('busy')
+            try {
+              const res = await fetch('/api/billing/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plan: billing, locale }),
+              })
+              if (res.status === 401) {
+                window.location.href = '/account'
+                return
+              }
+              const d = await res.json()
+              if (d?.checkoutUrl) {
+                window.location.href = d.checkoutUrl
+                return
+              }
+              setCheckout('error')
+            } catch {
+              setCheckout('error')
+            }
+          }}
+          className="relative mt-6 inline-flex h-13 w-full items-center justify-center rounded-2xl bg-apple py-4 font-bold text-primary-foreground shadow-[0_14px_30px_-12px_rgba(214,42,51,0.8)] transition hover:brightness-110 disabled:opacity-70"
+        >
+          {checkout === 'busy' ? 'One second…' : `Get Pomme Plus — ${after}`}
+        </button>
+        {checkout === 'error' && (
+          <p role="status" className="relative mt-3 rounded-2xl bg-cream/10 px-4 py-3 text-sm text-cream">
+            The payment page did not open. Try again in a moment — nothing has been charged.
           </p>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setStarted(true)}
-            className="relative mt-6 inline-flex h-13 w-full items-center justify-center rounded-2xl bg-apple py-4 font-bold text-primary-foreground shadow-[0_14px_30px_-12px_rgba(214,42,51,0.8)] transition hover:brightness-110"
-          >
-            Start my 7-day free trial
-          </button>
         )}
         <p className="relative mt-3 text-center text-xs text-cream/55">
-          7 days free, then {after}. Cancel anytime in two taps.
+          New here? Your first week is free — create your account and the trial starts. Then {after}. One payment, no
+          auto-renewal.
         </p>
         <button
           type="button"
