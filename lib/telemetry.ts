@@ -6,6 +6,11 @@ export type TelemetryEvent =
   | { type: 'share'; locale: string; channel: string }
   | { type: 'newsletter_submit'; locale: string }
   | { type: 'swap'; locale: string; reason: string }
+  | { type: 'visit'; locale: string; reason?: string }
+  | { type: 'page_view'; locale: string; reason?: string }
+  | { type: 'signup'; locale: string }
+  | { type: 'login'; locale: string }
+  | { type: 'plan_saved'; locale: string }
 
 declare global {
   interface Window {

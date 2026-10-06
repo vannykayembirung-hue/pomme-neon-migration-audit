@@ -2,6 +2,7 @@ import { Archivo, Sacramento } from 'next/font/google'
 import { CookieBanner } from '@/components/consent/cookie-banner'
 import { TrackingScripts } from '@/components/consent/tracking-scripts'
 import { ServiceWorkerRegister } from '@/components/pomme/sw-register'
+import { TelemetryBeacon } from '@/components/pomme/telemetry-beacon'
 import '@/app/globals.css'
 
 const archivo = Archivo({ subsets: ['latin'], variable: '--font-archivo', display: 'swap' })
@@ -15,6 +16,7 @@ export function RootShell({ lang, children }: { lang: 'en-US' | 'en-GB'; childre
         <CookieBanner />
         <TrackingScripts />
         <ServiceWorkerRegister />
+        <TelemetryBeacon />
       </body>
     </html>
   )

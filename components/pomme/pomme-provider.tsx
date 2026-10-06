@@ -135,6 +135,7 @@ export function PommeProvider({
 
   const swapMeal = useCallback(
     (day: number, recipeId: string) => {
+      let previous: string | undefined
       store.update((s) => {
         // "Pomme learns": what was swapped out loses ground, what was chosen gains it.
         let memory = s.memory
@@ -143,13 +144,14 @@ export function PommeProvider({
           const entry = current.days[day]
           const incoming = RECIPES.find((r) => r.id === recipeId)
           if (entry && entry.kind === 'meal' && entry.recipe.id !== recipeId) {
+            previous = entry.recipe.id
             memory = applySignal(memory, entry.recipe, 'swapped_out')
             if (incoming) memory = applySignal(memory, incoming, 'swapped_in')
           }
         }
         return { ...s, swaps: { ...s.swaps, [day]: recipeId }, memory }
       })
-      track({ type: 'swap', locale, reason: `day-${day}` })
+      track({ type: 'swap', locale, reason: previous ? `day-${day}:${previous}>${recipeId}` : `day-${day}:${recipeId}` })
     },
     [store, locale],
   )

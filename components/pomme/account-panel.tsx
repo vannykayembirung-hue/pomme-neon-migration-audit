@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { STORAGE_KEY, parsePersisted } from '@/lib/pomme/persist'
+import { track } from '@/lib/telemetry'
 import { applySwaps, generatePlan, DAY_NAMES } from '@/lib/pomme/plan'
 import { localName } from '@/lib/pomme/recipes'
 
@@ -22,7 +23,8 @@ export function AccountPanel() {
   const [message, setMessage] = useState<string | null>(null)
   const [refresh, setRefresh] = useState(0)
   const pathname = usePathname()
-  const weekHref = pathname?.startsWith('/uk') ? '/uk/#sunday-plan' : '/#sunday-plan'
+  const locale = pathname?.startsWith('/uk') ? 'uk' : 'us'
+  const weekHref = locale === 'uk' ? '/uk/#sunday-plan' : '/#sunday-plan'
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -62,7 +64,7 @@ export function AccountPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account?.email, account?.savedAt, refresh])
 
-  const finishAuth = (d: { ok: boolean; email: string; state: unknown; savedAt: number | null; error?: string }) => {
+  const finishAuth = (d: { ok: boolean; email: string; state: unknown; savedAt: number | null; error?: string }, mode: 'login' | 'signup') => {
     if (!d.ok) {
       setMessage(d.error === 'invalid-credentials' ? 'Wrong email or password.' : `Could not continue: ${d.error ?? 'unknown'}`)
       return
@@ -75,6 +77,7 @@ export function AccountPanel() {
       }
     }
     setAccount({ email: d.email, savedAt: d.savedAt })
+    track({ type: mode === 'signup' ? 'signup' : 'login', locale })
     setMessage('You are in. Your week follows your account.')
     setRefresh((n) => n + 1)
   }
@@ -88,7 +91,7 @@ export function AccountPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, local: localPayload() }),
       })
-      finishAuth(await res.json())
+      finishAuth(await res.json(), mode)
     } catch {
       setMessage('Network hiccup — try again.')
     } finally {
@@ -115,6 +118,7 @@ export function AccountPanel() {
       const d = await res.json()
       if (d.ok) {
         setAccount((a) => (a ? { ...a, savedAt: d.savedAt } : a))
+        track({ type: 'plan_saved', locale })
         setMessage('Week saved to your account.')
         setRefresh((n) => n + 1)
       } else {
