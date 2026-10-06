@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import { ArrowRight } from 'lucide-react'
 import { OPEN_CONSENT_EVENT } from '@/components/consent/cookie-banner'
-import { SOCIALS } from '@/lib/site'
+import { CONTACT_EMAIL, SOCIALS } from '@/lib/site'
 import { Logo } from './logo'
 import { usePomme } from './pomme-provider'
 
@@ -100,6 +100,11 @@ export function SiteFooter() {
           ))}
         </ul>
         <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+          <li>
+            <a href={`mailto:${CONTACT_EMAIL}`} className="underline-offset-4 hover:text-cream hover:underline">
+              {CONTACT_EMAIL}
+            </a>
+          </li>
           <li>
             <a href="/do-not-sell" className="underline-offset-4 hover:text-cream hover:underline">
               Do Not Sell or Share My Personal Information

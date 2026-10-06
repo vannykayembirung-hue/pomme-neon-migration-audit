@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { POSTAL_ADDRESS } from '@/lib/admin/email-templates'
+import { CONTACT_EMAIL } from '@/lib/site'
 
 export const metadata: Metadata = { title: 'Privacy notice' }
 
@@ -25,7 +26,13 @@ export default function Privacy() {
         <p>
           <strong>Your rights.</strong> You can ask us to access or delete your data. Contact us at the address below.
         </p>
-        <p className="text-sm">{POSTAL_ADDRESS}</p>
+        <p className="text-sm">
+          {POSTAL_ADDRESS}
+          <br />
+          <a href={`mailto:${CONTACT_EMAIL}`} className="underline underline-offset-4">
+            {CONTACT_EMAIL}
+          </a>
+        </p>
         <Link href="/" className="font-bold underline">
           Back to Pomme
         </Link>
