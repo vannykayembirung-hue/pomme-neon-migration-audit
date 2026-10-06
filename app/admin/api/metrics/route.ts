@@ -7,9 +7,8 @@ export async function GET(request: Request) {
   if (!(await isAdmin())) return new Response('Unauthorized', { status: 401 })
   const url = new URL(request.url)
   const range = Math.min(90, Math.max(2, Number(url.searchParams.get('range') ?? 30) || 30))
-  const locale = (['all', 'us', 'uk'].includes(url.searchParams.get('locale') ?? 'all')
-    ? url.searchParams.get('locale')
-    : 'all') as RangeLocale
+  const localeParam = url.searchParams.get('locale') ?? 'all'
+  const locale = (['all', 'us', 'uk'].includes(localeParam) ? localeParam : 'all') as RangeLocale
   return Response.json(await getMetrics(range, locale), { headers: { 'cache-control': 'no-store' } })
 }
 
