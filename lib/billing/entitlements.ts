@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import { entitlements, orders } from '@/lib/db/schema'
 import { PLAN_DAYS, TRIAL_DAYS, extendPlus, type Plan } from './plus'
@@ -47,4 +47,12 @@ export async function settleOrder(id: string): Promise<{ email: string; plan: Pl
 
 export async function pendingOrders() {
   return db.select().from(orders).where(eq(orders.status, 'pending'))
+}
+
+/** Pending orders of one account — used to settle on return from checkout. */
+export async function pendingOrdersFor(email: string) {
+  return db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.email, email), eq(orders.status, 'PENDING')))
 }

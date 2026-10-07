@@ -2,7 +2,8 @@
 
 /**
  * Phase 2.9 — return page from the SasPay hosted checkout.
- * Verifies the order server-side (never trusts the URL alone).
+ * Reconciles pending orders server-side. Works even if the return URL
+ * carries no order id (SasPay makes no promise about redirect params).
  */
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -15,17 +16,15 @@ export function BillingSuccess() {
   const [plusUntil, setPlusUntil] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!orderId) {
-      setState('error')
-      return
-    }
-    fetch(`/api/billing/checkout-status?id=${encodeURIComponent(orderId)}`)
+    const qs = orderId ? `?id=${encodeURIComponent(orderId)}` : ''
+    fetch(`/api/billing/checkout-status${qs}`)
       .then((r) => r.json())
       .then((d) => {
         if (d?.paid) {
           setPlusUntil(d.plusUntil)
           setState('paid')
-        } else setState('pending')
+        } else if (d?.ok) setState('pending')
+        else setState('error')
       })
       .catch(() => setState('error'))
   }, [orderId])
