@@ -8,7 +8,11 @@ import {
   stampedFromPayload,
 } from '@/lib/pomme/api-session'
 
+import { clientIp, rateLimit, tooManyRequests } from '@/lib/rate-limit'
+
 export async function POST(request: Request) {
+  const limited = await rateLimit('auth-signup', clientIp(request), { limit: 10, window: '1 h', strict: true })
+  if (!limited.allowed) return tooManyRequests(limited, { error: 'too-many-requests' })
   const secret = authSecret()
   if (!secret) return NextResponse.json({ error: 'auth-not-configured' }, { status: 503 })
   let body: { email?: unknown; password?: unknown; local?: unknown }

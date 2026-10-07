@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { loadAccount, saveAccount } from '@/lib/pomme/account'
 import { drizzleUserRepo } from '@/lib/db/user-repo'
 import { authSecret, readSessionCookie, stampedFromPayload } from '@/lib/pomme/api-session'
+import { clientIp, rateLimit, tooManyRequests } from '@/lib/rate-limit'
 
 /**
  * GET  /api/plan — the session user's saved week (401 without a session).
@@ -19,6 +20,8 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const limited = await rateLimit('plan-put', clientIp(request), { limit: 20, window: '1 m', strict: true })
+  if (!limited.allowed) return tooManyRequests(limited, { error: 'too-many-requests' })
   const secret = authSecret()
   if (!secret) return NextResponse.json({ error: 'auth-not-configured' }, { status: 503 })
   const token = readSessionCookie(request)
