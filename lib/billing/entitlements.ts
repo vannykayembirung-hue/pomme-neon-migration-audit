@@ -54,5 +54,5 @@ export async function pendingOrdersFor(email: string) {
   return db
     .select()
     .from(orders)
-    .where(and(eq(orders.email, email), eq(orders.status, 'PENDING')))
+    .where(and(eq(orders.email, email), eq(orders.status, 'pending')))
 }
