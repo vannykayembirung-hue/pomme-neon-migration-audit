@@ -11,8 +11,10 @@ export default function Privacy() {
       <h1 className="text-3xl font-black tracking-tight">Privacy notice</h1>
       <div className="mt-5 flex flex-col gap-4 leading-relaxed">
         <p>
-          <strong>What we keep on your device.</strong> Your Sunday Plan and preferences are saved in your browser so they
-          are there next time. They are not sent to us.
+          <strong>Where your plan lives.</strong> Your Sunday Plan and preferences are saved in your browser so they are
+          there next time. If you create an account and tap &ldquo;Save my plan&rdquo;, a copy is kept in your account so
+          your week follows you to any device. Without an account, your plan stays on your device and is never sent to
+          us.
         </p>
         <p>
           <strong>Newsletter.</strong> If you subscribe, we hold your email address and region only to send the Sunday
