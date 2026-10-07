@@ -58,10 +58,10 @@ export function PlanForm() {
         e.preventDefault()
         generate()
       }}
-      className="flex flex-col gap-7 rounded-3xl border border-border bg-card p-5 sm:p-7"
+      className="flex min-w-0 flex-col gap-7 rounded-3xl border border-border bg-card p-5 sm:p-7"
     >
       <Field legend="Your week" hint="Tap a day to switch between cook, quick and night off.">
-        <div className="grid grid-cols-7 gap-1.5">
+        <div className="grid grid-cols-[repeat(7,minmax(0,1fr))] gap-1.5">
           {prefs.days.map((mode, index) => (
             <button
               key={DAYS[index]}

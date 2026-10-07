@@ -16,6 +16,10 @@ export type PommeState = {
   checkedGroceryItems: string[]
   /** Deterministic behavioural memory ("Pomme learns"). */
   memory: MemoryState
+  /** Memory frozen at the moment the current week was generated. The displayed
+   * plan is derived from this snapshot so later learning (swaps) never re-shapes
+   * the week in progress — "Everything else on your week stays exactly as it is." */
+  planMemory: MemoryState
 }
 
 export type Persisted = PommeState & { version: 1; savedAt: number }
@@ -29,6 +33,7 @@ export function defaultState(locale: Locale): PommeState {
     swaps: {},
     checkedGroceryItems: [],
     memory: EMPTY_MEMORY,
+    planMemory: EMPTY_MEMORY,
   }
 }
 
@@ -93,6 +98,7 @@ export function parsePersisted(raw: string | null, now = Date.now()): PommeState
     if (data.locale !== 'us' && data.locale !== 'uk') return null
     if (!isPrefs(data.prefs)) return null
     if (typeof data.seed !== 'number' || data.seed < 0) return null
+    const memory = parseMemory(data.memory)
     return {
       locale: data.locale,
       prefs: data.prefs,
@@ -100,7 +106,10 @@ export function parsePersisted(raw: string | null, now = Date.now()): PommeState
       seed: data.seed,
       swaps: parseSwaps(data.swaps),
       checkedGroceryItems: parseChecked(data.checkedGroceryItems),
-      memory: parseMemory(data.memory),
+      memory,
+      // Blobs written before this field existed keep today's behaviour: the
+      // snapshot is the memory they were generated with.
+      planMemory: data.planMemory === undefined ? memory : parseMemory(data.planMemory),
     }
   } catch {
     return null

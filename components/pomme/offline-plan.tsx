@@ -1,7 +1,8 @@
 'use client'
 
 import { useSyncExternalStore } from 'react'
-import { DAY_NAMES, applySwaps, generatePlan } from '@/lib/pomme/plan'
+import { DAY_NAMES } from '@/lib/pomme/plan'
+import { derivePlan } from '@/lib/pomme/derive'
 import { STORAGE_KEY, parsePersisted } from '@/lib/pomme/persist'
 import { localName } from '@/lib/pomme/recipes'
 
@@ -20,8 +21,10 @@ export function OfflinePlan() {
   if (!state || state.seed === 0) {
     return <p className="mt-4 text-oxblood/80">You haven&apos;t made a Sunday Plan yet. Come back online and Pomme will sort your week.</p>
   }
-  const planPrefs = state.planPrefs ?? state.prefs
-  const plan = applySwaps(generatePlan(planPrefs, state.locale, state.seed), state.swaps, planPrefs, state.locale)
+  const plan = derivePlan(state)
+  if (!plan) {
+    return <p className="mt-4 text-oxblood/80">You haven&apos;t made a Sunday Plan yet. Come back online and Pomme will sort your week.</p>
+  }
   return (
     <ol className="mt-8 flex flex-col gap-3">
       {plan.days.map((entry) => (

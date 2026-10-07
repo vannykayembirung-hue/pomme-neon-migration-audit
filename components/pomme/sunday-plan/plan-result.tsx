@@ -195,7 +195,7 @@ function Basket({ plan, locale }: { plan: Plan; locale: Locale }) {
 }
 
 export function PlanResult() {
-  const { plan, locale, prefs, openPaywall, freeSwapsLeft, swapMeal } = usePomme()
+  const { plan, locale, prefs, openPaywall, freeSwapsLeft, swapMeal, unapplied } = usePomme()
   const [tab, setTab] = useState<'week' | 'basket'>('week')
   const [viewing, setViewing] = useState<{ recipe: Recipe; batch: boolean } | null>(null)
   const [swapTarget, setSwapTarget] = useState<{ day: number; recipe: Recipe } | null>(null)
@@ -212,7 +212,7 @@ export function PlanResult() {
   }
 
   return (
-    <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-3 duration-500" aria-live="polite">
+    <div className="flex min-w-0 flex-col gap-4 animate-in fade-in slide-in-from-bottom-3 duration-500" aria-live="polite">
       <div className="rounded-3xl bg-oxblood p-6 text-cream">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -221,7 +221,7 @@ export function PlanResult() {
           </div>
           <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-cream/80">Free plan</span>
         </div>
-        <dl className="mt-6 grid grid-cols-3 gap-3">
+        <dl className="mt-6 grid grid-cols-[repeat(3,minmax(0,1fr))] gap-3">
           <div className="rounded-2xl bg-white/[0.06] p-3">
             <dt className="text-[11px] uppercase tracking-wider text-cream/55">Dinners</dt>
             <dd className="mt-1 text-xl font-black">{plan.dinners}</dd>
@@ -258,6 +258,16 @@ export function PlanResult() {
               <p key={warning}>{warning}</p>
             ))}
           </div>
+        </div>
+      )}
+
+      {unapplied.length > 0 && (
+        <div role="note" className="flex items-start gap-2.5 rounded-2xl border border-oxblood/30 bg-oxblood/5 px-4 py-3.5 text-sm leading-relaxed text-oxblood">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-oxblood" aria-hidden="true" />
+          <p>
+            I couldn&apos;t apply: {unapplied.join(', ')}. Pomme can&apos;t check those ingredients yet — read each recipe
+            before you shop.
+          </p>
         </div>
       )}
 

@@ -10,7 +10,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { STORAGE_KEY, parsePersisted } from '@/lib/pomme/persist'
 import { track } from '@/lib/telemetry'
-import { applySwaps, generatePlan, DAY_NAMES } from '@/lib/pomme/plan'
+import { DAY_NAMES } from '@/lib/pomme/plan'
+import { derivePlan } from '@/lib/pomme/derive'
 import { localName } from '@/lib/pomme/recipes'
 
 type Account = { email: string; savedAt: number | null }
@@ -58,8 +59,8 @@ export function AccountPanel() {
     try {
       const state = parsePersisted(window.localStorage.getItem(STORAGE_KEY))
       if (!state || state.seed <= 0) return null
-      const prefs = state.planPrefs ?? state.prefs
-      const plan = applySwaps(generatePlan(prefs, state.locale, state.seed, state.memory), state.swaps, prefs, state.locale)
+      const plan = derivePlan(state)
+      if (!plan) return null
       return plan.days.map((d) => ({
         key: d.day,
         label: DAY_NAMES[d.day].slice(0, 3),

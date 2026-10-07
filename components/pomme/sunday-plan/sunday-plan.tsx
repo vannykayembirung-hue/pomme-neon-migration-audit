@@ -17,7 +17,7 @@ export function SundayPlan() {
             No account, no card. Tell Pomme a little about your week and see what it feels like to have it handled.
           </p>
         </div>
-        <div className="mt-12 grid items-start gap-6 lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
+        <div className="mt-12 grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
           <PlanForm />
           <PlanResult />
         </div>

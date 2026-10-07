@@ -432,7 +432,7 @@ export function parseWeekNote(
   note: string,
   base: Prefs,
   baseLocale: Locale,
-): { prefs: Prefs; locale: Locale } {
+): { prefs: Prefs; locale: Locale; unapplied: string[] } {
   const text = note.toLowerCase()
   const prefs: Prefs = { ...base, days: [...base.days], avoid: [...base.avoid] }
   let locale = baseLocale
@@ -465,12 +465,17 @@ export function parseWeekNote(
   } else if (/\b(veg|veggie|vegetarian|plant[- ]based|meat[- ]free)\b/.test(text)) {
     prefs.avoid = [...new Set([...prefs.avoid, 'meat', 'fish'] as Avoid[])]
   }
+  if (/\bpesc[ae]tarian\b/.test(text) && !prefs.avoid.includes('meat')) prefs.avoid.push('meat')
   const avoidRules: [RegExp, Avoid][] = [
     [/\b(no|hate|not|without|avoid)\b[^,.]*\b(fish|seafood|salmon)\b/, 'fish'],
     [/\b(no|hate|not|without|avoid)\b[^,.]*\bmushrooms?\b/, 'mushroom'],
     [/\b(no|hate|not|without|avoid)\b[^,.]*\b(cilantro|coriander)\b/, 'cilantro'],
     [/\b(no|hate|not|without|avoid)\b[^,.]*\b(spicy|spice|heat)\b/, 'spicy'],
-    [/\b(no|hate|not|without|avoid)\b[^,.]*\b(dairy|lactose)\b|dairy[- ]free/, 'dairy'],
+    [
+      /\b(no|hate|not|without|avoid|don'?t eat)\b[^,.]*\b(dairy|lactose|milk)\b|dairy[- ]free|lactose[- ]free|lactose intoleran\w*/,
+      'dairy',
+    ],
+    [/\b(no|hate|not|without|avoid|don'?t eat|stop eating|quit)\b[^,.]*\bmeat\b|meat[- ]free/, 'meat'],
   ]
   for (const [rule, value] of avoidRules) {
     if (rule.test(text) && !prefs.avoid.includes(value)) prefs.avoid.push(value)
@@ -493,10 +498,22 @@ export function parseWeekNote(
     }
   }
 
+  // P0 safety: constraints Pomme cannot fully enforce are never silently dropped.
+  // They surface to the user as "I couldn't apply: …" instead of pretending they were understood.
+  const UNCHECKABLE =
+    /\b(allerg\w*|intoleran\w*|coeliac|celiac|gluten|halal|kosher|keto|paleo|whole[ -]?30|peanuts?|nuts?|pork|shellfish|prawns?|crab|lobster|eggs?|soy|sesame|sulphites?|sulfites?)\b/
+  const unapplied: string[] = []
+  for (const clause of clauses) {
+    const trimmed = clause.trim().replace(/\s+/g, ' ')
+    if (trimmed && UNCHECKABLE.test(trimmed) && !unapplied.includes(trimmed)) {
+      unapplied.push(trimmed.slice(0, 48))
+    }
+  }
+
   if (/\b(cosy|cozy|comfort|rainy|cold|snug)\b/.test(text)) prefs.mood = 'cosy'
   else if (/\b(fresh|light|summer|bright|reset)\b/.test(text)) prefs.mood = 'fresh'
   else if (/\b(energ|gym|active|training|run)/.test(text)) prefs.mood = 'energised'
   else if (/\b(tired|lazy|exhausted|low[- ]effort|done|knackered|wiped)\b/.test(text)) prefs.mood = 'easy'
 
-  return { prefs, locale }
+  return { prefs, locale, unapplied }
 }

@@ -76,7 +76,7 @@ function useParallax(ref: React.RefObject<HTMLElement | null>) {
 
 export function Hero() {
   const sectionRef = useRef<HTMLElement>(null)
-  const { applyWeekNote, locale } = usePomme()
+  const { applyWeekNote, locale, unapplied } = usePomme()
   const [note, setNote] = useState('')
   useParallax(sectionRef)
 
@@ -201,6 +201,12 @@ export function Hero() {
                 </button>
               </div>
             </form>
+            {unapplied.length > 0 && (
+              <p role="status" className="mt-3 rounded-xl bg-white/[0.08] px-3.5 py-2.5 text-sm leading-relaxed text-cream ring-1 ring-white/20">
+                I couldn&apos;t apply: {unapplied.join(', ')}. Pomme can&apos;t check those ingredients yet — read each
+                recipe before cooking.
+              </p>
+            )}
             <ShareButton />
 
             <div className="mt-4 flex flex-wrap gap-2" aria-label="Try an example">

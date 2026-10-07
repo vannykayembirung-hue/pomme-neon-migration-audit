@@ -12,7 +12,6 @@ import {
 } from 'react'
 import {
   DEFAULT_PREFS,
-  applySwaps,
   findNextSeed,
   generatePlan,
   parseWeekNote,
@@ -20,6 +19,7 @@ import {
   type Plan,
   type Prefs,
 } from '@/lib/pomme/plan'
+import { derivePlan } from '@/lib/pomme/derive'
 import { FEATURES } from '@/lib/pomme/features'
 import { applySignal } from '@/lib/pomme/memory'
 import { createPommeStore, localiseState } from '@/lib/pomme/persist'
@@ -49,6 +49,8 @@ type PommeContextValue = {
   paywall: PaywallReason | null
   openPaywall: (reason: PaywallReason) => void
   closePaywall: () => void
+  /** Constraints from the week note Pomme could not enforce — shown, never dropped. */
+  unapplied: string[]
 }
 
 const PommeContext = createContext<PommeContextValue | null>(null)
@@ -65,7 +67,8 @@ export function PommeProvider({
   const store = useMemo(() => createPommeStore(defaultLocale), [defaultLocale])
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot)
   const [paywall, setPaywall] = useState<PaywallReason | null>(null)
-  const { locale, prefs, planPrefs, seed, swaps, checkedGroceryItems, memory } = state
+  const [unapplied, setUnapplied] = useState<string[]>([])
+  const { locale, prefs, planPrefs, seed, swaps, checkedGroceryItems, memory, planMemory } = state
 
   const router = useRouter()
 
@@ -86,16 +89,13 @@ export function PommeProvider({
   const generate = useCallback(() => {
     store.update((s) => {
       // "Rework my plan" must visibly rework: skip seeds that reproduce the same week.
-      const previous = s.seed > 0 ? planSignature(generatePlan(s.planPrefs ?? s.prefs, locale, s.seed, s.memory)) : null
+      const current = s.seed > 0 ? derivePlan(s) : null
+      const previous = current ? planSignature(current) : null
       const seed = findNextSeed(s.prefs, locale, s.seed + 1, previous, undefined, s.memory)
       // "Pomme learns": a meal that survives a rework was kept on purpose.
       let memory = s.memory
-      if (previous) {
-        const before = new Set(
-          generatePlan(s.planPrefs ?? s.prefs, locale, s.seed, s.memory).days.flatMap((d) =>
-            d.kind === 'meal' ? [d.recipe] : [],
-          ),
-        )
+      if (previous && current) {
+        const before = new Set(current.days.flatMap((d) => (d.kind === 'meal' ? [d.recipe] : [])))
         const after = generatePlan(s.prefs, locale, seed, s.memory).days.flatMap((d) =>
           d.kind === 'meal' ? [d.recipe] : [],
         )
@@ -103,8 +103,10 @@ export function PommeProvider({
           if (before.has(recipe)) memory = applySignal(memory, recipe, 'kept')
         }
       }
-      return { ...s, planPrefs: s.prefs, seed, swaps: {}, memory }
+      // The new week is generated from this frozen snapshot; later learning never re-shapes it.
+      return { ...s, planPrefs: s.prefs, seed, swaps: {}, memory, planMemory: memory }
     })
+    setUnapplied([])
     track({ type: 'plan_generated', locale, mood: prefs.mood })
   }, [store, locale, prefs.mood])
 
@@ -112,10 +114,21 @@ export function PommeProvider({
     (note: string) => {
       const parsed = parseWeekNote(note, prefs, locale)
       store.update((s) => {
-        const previous = s.seed > 0 ? planSignature(generatePlan(s.planPrefs ?? s.prefs, locale, s.seed, s.memory)) : null
+        const current = s.seed > 0 ? derivePlan(s) : null
+        const previous = current ? planSignature(current) : null
         const seed = findNextSeed(parsed.prefs, parsed.locale, s.seed + 1, previous, undefined, s.memory)
-        return { ...s, locale: parsed.locale, prefs: parsed.prefs, planPrefs: parsed.prefs, seed, swaps: {}, memory: s.memory }
+        return {
+          ...s,
+          locale: parsed.locale,
+          prefs: parsed.prefs,
+          planPrefs: parsed.prefs,
+          seed,
+          swaps: {},
+          memory: s.memory,
+          planMemory: s.memory,
+        }
       })
+      setUnapplied(parsed.unapplied)
       track({ type: 'plan_generated', locale: parsed.locale, mood: parsed.prefs.mood })
       if (parsed.locale !== defaultLocale) {
         router.push(pathFor(parsed.locale))
@@ -131,6 +144,7 @@ export function PommeProvider({
   const resetWeek = useCallback(() => {
     store.reset()
     setPaywall(null)
+    setUnapplied([])
   }, [store])
 
   const swapMeal = useCallback(
@@ -140,8 +154,8 @@ export function PommeProvider({
         // "Pomme learns": what was swapped out loses ground, what was chosen gains it.
         let memory = s.memory
         if (s.seed > 0) {
-          const current = applySwaps(generatePlan(s.planPrefs ?? s.prefs, locale, s.seed, s.memory), s.swaps, s.planPrefs ?? s.prefs, locale)
-          const entry = current.days[day]
+          const current = derivePlan(s)
+          const entry = current?.days[day]
           const incoming = RECIPES.find((r) => r.id === recipeId)
           if (entry && entry.kind === 'meal' && entry.recipe.id !== recipeId) {
             previous = entry.recipe.id
@@ -177,13 +191,14 @@ export function PommeProvider({
     [locale],
   )
 
-  const plan = useMemo(
-    () =>
-      seed > 0
-        ? applySwaps(generatePlan(planPrefs ?? prefs, locale, seed, memory), swaps, planPrefs ?? prefs, locale)
-        : null,
-    [seed, planPrefs, prefs, locale, swaps, memory],
-  )
+  const plan = useMemo(() => derivePlan({ planPrefs, prefs, seed, locale, swaps, planMemory }), [
+    seed,
+    planPrefs,
+    prefs,
+    locale,
+    swaps,
+    planMemory,
+  ])
 
   // Checkboxes follow the current grocery list: when the plan changes (rework,
   // week note, swap), keys that no longer exist are cleaned out; new items start
@@ -217,8 +232,9 @@ export function PommeProvider({
       paywall,
       openPaywall,
       closePaywall: () => setPaywall(null),
+      unapplied,
     }),
-    [locale, setLocale, prefs, setPrefs, plan, generate, applyWeekNote, resetWeek, swaps, swapMeal, checkedGroceryItems, toggleGroceryItem, paywall, openPaywall],
+    [locale, setLocale, prefs, setPrefs, plan, generate, applyWeekNote, resetWeek, swaps, swapMeal, checkedGroceryItems, toggleGroceryItem, paywall, openPaywall, unapplied],
   )
 
   return <PommeContext.Provider value={value}>{children}</PommeContext.Provider>
